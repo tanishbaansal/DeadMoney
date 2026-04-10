@@ -3,13 +3,102 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+
+  /* Backgrounds */
+  --color-bg-base: #0a0a0f;
+  --color-bg-surface: #111118;
+  --color-bg-elevated: #1a1a24;
+  --color-bg-muted: #22222e;
+
+  /* Brand */
+  --color-brand-red: #ff2d2d;
+  --color-brand-orange: #ff6b35;
+  --color-brand-green: #00d4aa;
+  --color-brand-purple: #7c3aed;
+  --color-brand-purple-light: #a78bfa;
+
+  /* Text */
+  --color-text-primary: #f0f0f5;
+  --color-text-secondary: #9898a8;
+  --color-text-muted: #5a5a6a;
+
+  /* Borders */
+  --color-border-subtle: #1e1e2c;
+  --color-border-default: #2a2a3a;
+  --color-border-strong: #3a3a4e;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px #1e1e2c;
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px #2a2a3a;
+  --shadow-glow-red: 0 0 40px rgba(255, 45, 45, 0.2);
+  --shadow-glow-purple: 0 0 32px rgba(124, 58, 237, 0.25);
+  --shadow-glow-green: 0 0 24px rgba(0, 212, 170, 0.2);
+
+  /* Animations */
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+  --animate-pulse-red: pulseRed 2s ease-in-out infinite;
+  --animate-row-enter: rowEnter 300ms ease-out both;
+  --animate-spin-ring: spinRing 1.2s linear infinite;
 }
 
-html,
-body {
-  @apply bg-white dark:bg-gray-950;
-
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
-  }
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
+
+@keyframes pulseRed {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes rowEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spinRing {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+html, body {
+  background-color: #0a0a0f;
+  color: #f0f0f5;
+  color-scheme: dark;
+}
+
+/* Financial numbers */
+.financial {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Red glow text */
+.text-glow-red {
+  text-shadow: 0 0 30px rgba(255, 45, 45, 0.5);
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(90deg, #22222e 25%, #2a2a3a 50%, #22222e 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Shake animation */
+.shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #0a0a0f; }
+::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }

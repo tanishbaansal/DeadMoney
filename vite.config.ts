@@ -7,4 +7,20 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  server: {
+    proxy: {
+      // Proxy earn.li.fi to avoid CORS in dev
+      "/earn-api": {
+        target: "https://earn.li.fi",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/earn-api/, ""),
+      },
+      // Proxy li.quest Composer to avoid CORS in dev
+      "/composer-api": {
+        target: "https://li.quest",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/composer-api/, ""),
+      },
+    },
+  },
 });
