@@ -1,19 +1,22 @@
 import { useState, useEffect, useRef } from "react";
-import { Copy, Check, ExternalLink } from "lucide-react";
+import { Copy, Check, ExternalLink, Sparkles } from "lucide-react";
 import type { DeadMoneyReport as Report, IdleAsset } from "~/lib/deadMoney";
 import { formatUsd, formatApy, getScoreLabel } from "~/lib/deadMoney";
+import { getVaultUrl } from "~/lib/earnApi";
 import { shortenAddress as shorten } from "~/lib/ens";
 import { CHAIN_NAMES } from "~/lib/tokens";
 import { ShareButton } from "./ShareButton";
+import { ShareCard } from "./ShareCard";
 import { FixModal } from "./FixModal";
 import { cn } from "~/lib/utils";
 
 interface DeadMoneyReportProps {
   report: Report;
   onFixed: (asset: IdleAsset) => void;
+  activePositions?: any[];
 }
 
-export function DeadMoneyReport({ report, onFixed }: DeadMoneyReportProps) {
+export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadMoneyReportProps) {
   const [copied, setCopied] = useState(false);
   const [fixingAsset, setFixingAsset] = useState<IdleAsset | null>(null);
   const [fixedKeys, setFixedKeys] = useState<Set<string>>(new Set());
@@ -70,7 +73,7 @@ export function DeadMoneyReport({ report, onFixed }: DeadMoneyReportProps) {
         <div className="flex items-center justify-between py-4 border-b border-[#1e1e2c] mb-2">
           <button
             onClick={copyAddress}
-            className="flex items-center gap-2 font-mono text-sm text-[#9898a8] hover:text-[#f0f0f5] transition-colors"
+            className="cursor-pointer flex items-center gap-2 font-mono text-sm text-[#9898a8] hover:text-[#f0f0f5] transition-colors"
           >
             <span>{shorten(report.address)}</span>
             {copied ? <Check className="w-3.5 h-3.5 text-[#00d4aa]" /> : <Copy className="w-3.5 h-3.5" />}
@@ -116,30 +119,63 @@ export function DeadMoneyReport({ report, onFixed }: DeadMoneyReportProps) {
           </div>
         </section>
 
-        {/* Dead Money Score */}
+        {/* Score & Active Yield */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
           <div className="lg:col-span-1 flex justify-center">
             <ScoreGauge score={report.deadMoneyScore} />
           </div>
-          <div className="lg:col-span-2 flex flex-col justify-center gap-4">
-            <h2 className="text-xl font-semibold text-[#f0f0f5]">
-              How to rescue your dead money
-            </h2>
-            <p className="text-[#9898a8] text-sm leading-relaxed">
-              Click <span className="text-[#a78bfa] font-medium">Fix This</span> on any row below to deposit idle assets
-              into the best available vault via LI.FI Composer.
-              Your funds are withdrawable anytime — no lockups.
-            </p>
-            <div className="flex gap-3 flex-wrap">
-              {report.idleAssets.slice(0, 3).map((a) => (
-                <span
-                  key={`${a.token.chainId}:${a.token.address}`}
-                  className="text-xs px-2.5 py-1 rounded-full bg-[#ff2d2d]/10 border border-[#ff2d2d]/20 text-[#ff2d2d]"
-                >
-                  {a.token.symbol} bleeding {formatUsd(a.dailyLossUsd, true)}/day
-                </span>
-              ))}
-            </div>
+          
+          <div className="lg:col-span-2 flex flex-col justify-center gap-6">
+            {activePositions.length > 0 ? (
+              <div className="rounded-3xl bg-[#00d4aa]/5 border border-[#00d4aa]/20 p-8 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#00d4aa]/10 to-transparent opacity-50" />
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-5 h-5 text-[#00d4aa]" />
+                    <h2 className="text-xl font-bold text-[#f0f0f5]">Your money is working!</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-[#5a5a6a] mb-1">Active Investments</p>
+                      <p className="text-3xl font-black text-[#f0f0f5] font-mono">
+                        {formatUsd(activePositions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-widest text-[#5a5a6a] mb-1">Annual Yield</p>
+                      <p className="text-3xl font-black text-[#00d4aa] font-mono">
+                        +{formatUsd(activePositions.reduce((s, p) => s + (p.stakedTokenAmountUsd * (p.vault?.apy ?? 0.05)), 0))}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-[#9898a8] mt-6 leading-relaxed">
+                    You're already saving thousands by keeping these assets in yield-bearing vaults. 
+                    <span className="text-white font-medium"> Scroll down to manage your positions.</span>
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col justify-center gap-4">
+                <h2 className="text-xl font-semibold text-[#f0f0f5]">
+                  How to rescue your dead money
+                </h2>
+                <p className="text-[#9898a8] text-sm leading-relaxed">
+                  Click <span className="text-[#a78bfa] font-medium">Fix This</span> on any row below to deposit idle assets
+                  into the best available vault via LI.FI Composer.
+                  Your funds are withdrawable anytime — no lockups.
+                </p>
+                <div className="flex gap-3 flex-wrap">
+                  {report.idleAssets.slice(0, 3).map((a) => (
+                    <span
+                      key={`${a.token.chainId}:${a.token.address}`}
+                      className="text-xs px-2.5 py-1 rounded-full bg-[#ff2d2d]/10 border border-[#ff2d2d]/20 text-[#ff2d2d]"
+                    >
+                      {a.token.symbol} bleeding {formatUsd(a.dailyLossUsd, true)}/day
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -199,9 +235,15 @@ export function DeadMoneyReport({ report, onFixed }: DeadMoneyReportProps) {
                     </td>
                     <td className="px-4 py-4">
                       {asset.bestVault ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-[#f0f0f5] truncate max-w-[140px]">{asset.bestVault.name}</span>
-                        </div>
+                        <a
+                          href={getVaultUrl(asset.bestVault)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-[#a78bfa] hover:text-white truncate max-w-[140px] underline underline-offset-2 cursor-pointer inline-flex items-center gap-1"
+                        >
+                          {asset.bestVault.name}
+                          <ExternalLink className="w-3 h-3 opacity-60" />
+                        </a>
                       ) : (
                         <span className="text-xs text-[#5a5a6a]">No vault found</span>
                       )}
@@ -223,9 +265,9 @@ export function DeadMoneyReport({ report, onFixed }: DeadMoneyReportProps) {
                     <td className="px-6 py-4">
                       {!isFixed && asset.bestVault && (
                         <button
-                          onClick={() => setFixingAsset(asset)}
+                          onClick={(e) => { e.stopPropagation(); setFixingAsset(asset); }}
                           className={cn(
-                            "opacity-0 group-hover:opacity-100 transition-all duration-150",
+                            "cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-150",
                             "px-4 py-1.5 rounded-lg text-xs font-semibold text-white",
                             "bg-[#7c3aed] hover:bg-purple-500",
                             "shadow-[0_0_32px_rgba(124,58,237,0.25)]"
@@ -294,8 +336,8 @@ export function DeadMoneyReport({ report, onFixed }: DeadMoneyReportProps) {
                 </div>
                 {!isFixed && asset.bestVault && (
                   <button
-                    onClick={() => setFixingAsset(asset)}
-                    className="w-full py-2 rounded-lg text-sm font-semibold text-white bg-[#7c3aed] hover:bg-purple-500 transition-colors active:scale-95"
+                    onClick={(e) => { e.stopPropagation(); setFixingAsset(asset); }}
+                    className="cursor-pointer w-full py-2 rounded-lg text-sm font-semibold text-white bg-[#7c3aed] hover:bg-purple-500 transition-colors active:scale-95"
                   >
                     Fix This →
                   </button>
@@ -317,7 +359,11 @@ export function DeadMoneyReport({ report, onFixed }: DeadMoneyReportProps) {
           </div>
         )}
 
-        {/* Share */}
+        {/* Share card + buttons */}
+        <div className="mt-4 mb-2">
+          <p className="text-xs text-[#5a5a6a] uppercase tracking-widest text-center mb-4">Your Dead Money Card</p>
+          <ShareCard report={report} />
+        </div>
         <ShareButton report={report} />
       </div>
 

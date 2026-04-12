@@ -9,17 +9,41 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // Proxy earn.li.fi to avoid CORS in dev
       "/earn-api": {
         target: "https://earn.li.fi",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/earn-api/, ""),
       },
-      // Proxy li.quest Composer to avoid CORS in dev
       "/composer-api": {
         target: "https://li.quest",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/composer-api/, ""),
+      },
+      // Proxy Alchemy RPC calls to avoid CORS
+      "/rpc/eth": {
+        target: "https://eth-mainnet.g.alchemy.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/rpc\/eth/, ""),
+      },
+      "/rpc/base": {
+        target: "https://base-mainnet.g.alchemy.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/rpc\/base/, ""),
+      },
+      "/rpc/arb": {
+        target: "https://arb-mainnet.g.alchemy.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/rpc\/arb/, ""),
+      },
+      "/rpc/opt": {
+        target: "https://opt-mainnet.g.alchemy.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/rpc\/opt/, ""),
+      },
+      "/rpc/polygon": {
+        target: "https://polygon-mainnet.g.alchemy.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/rpc\/polygon/, ""),
       },
     },
   },

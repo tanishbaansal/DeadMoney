@@ -27,7 +27,7 @@ export interface Vault {
   address: string;
   chainId: number;
   name: string;
-  protocol: string;
+  protocol: string | { name?: string; key?: string; id?: string; url?: string; [k: string]: unknown };
   asset: string; // underlying token address
   isTransactional: boolean;
   apy7d: number | null;
@@ -36,6 +36,8 @@ export interface Vault {
   tags?: string[];
   logoUrl?: string;
   protocolLogoUrl?: string;
+  url?: string;
+  decimals?: number;
 }
 
 export interface Position {
@@ -45,6 +47,8 @@ export interface Position {
   userAddress: string;
   stakedTokenAmount: string;
   stakedTokenAmountUsd: number;
+  txHash?: string;
+  txLink?: string;
 }
 
 export interface PortfolioResponse {
@@ -53,7 +57,8 @@ export interface PortfolioResponse {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export function getBestApy(vault: Vault): number {
+export function getBestApy(vault: Vault | null | undefined): number {
+  if (!vault) return 0;
   // Fallback chain: apy7d → apy1d → analytics.apy.total → 0
   if (vault.apy7d != null && vault.apy7d > 0) return vault.apy7d;
   if (vault.apy1d != null && vault.apy1d > 0) return vault.apy1d;
@@ -62,31 +67,94 @@ export function getBestApy(vault: Vault): number {
   return 0;
 }
 
-export function getVaultTvl(vault: Vault): number {
+export function getVaultTvl(vault: Vault | null | undefined): number {
+  if (!vault) return 0;
   return parseFloat(vault.analytics?.tvl?.usd ?? "0");
+}
+
+// Generate the best available link to the vault's page
+export function getVaultUrl(vault: Vault | null | undefined): string {
+  if (!vault) return "https://app.li.fi/earn";
+  if (vault.url) return vault.url;
+  // 1. Try protocol-specific URL from the API first (best deep link)
+  if (typeof vault.protocol !== "string" && vault.protocol?.url) {
+    return vault.protocol.url;
+  }
+
+  // protocol may be a string or an object with a name/key field
+  const rawProtocol = vault.protocol;
+  const protocol = (
+    typeof rawProtocol === "string"
+      ? rawProtocol
+      : (rawProtocol as any)?.name ?? (rawProtocol as any)?.key ?? (rawProtocol as any)?.id ?? ""
+  ).toLowerCase();
+  const addr = vault.address?.toLowerCase();
+  const chainSlug: Record<number, string> = {
+    1: "ethereum", 8453: "base", 42161: "arbitrum", 10: "optimism", 137: "polygon",
+  };
+  const chain = chainSlug[vault.chainId] ?? "ethereum";
+
+  // Protocol-specific deep links (fallbacks)
+  if (protocol.includes("morpho")) return `https://app.morpho.org/vault?vault=${addr}&network=${chain}`;
+  if (protocol.includes("aave")) return `https://app.aave.com/`;
+  if (protocol.includes("compound")) return `https://app.compound.finance/`;
+  if (protocol.includes("yearn")) return `https://yearn.fi/vaults/${vault.chainId}/${addr}`;
+  if (protocol.includes("beefy")) return `https://app.beefy.com/`;
+  if (protocol.includes("convex")) return `https://www.convexfinance.com/stake`;
+  if (protocol.includes("pendle")) return `https://app.pendle.finance/trade/pools`;
+  if (protocol.includes("fluid")) return `https://fluid.instadapp.io/`;
+  if (protocol.includes("spark")) return `https://spark.fi/`;
+  if (protocol.includes("euler")) return `https://app.euler.finance/`;
+
+  // Fallback: LI.FI earn page
+  return `https://app.li.fi/earn`;
 }
 
 // ─── API calls ────────────────────────────────────────────────────────────────
 
-export async function getVaults(chainId: number, assetAddress: string): Promise<Vault[]> {
+export async function getVaults(chainId?: number, assetAddress?: string): Promise<Vault[]> {
   const params = new URLSearchParams({
-    chainId: String(chainId),
-    asset: assetAddress,
     sortBy: "apy",
-    minTvl: "1000000",
+    minTvl: "0", // Lowered from 100 to 0 for maximum discovery
   });
+  if (chainId) params.set("chainId", String(chainId));
+  
+  if (assetAddress) {
+    const addr = assetAddress.toLowerCase() === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" 
+      ? "0x0000000000000000000000000000000000000000" 
+      : assetAddress;
+    params.set("asset", addr);
+  }
 
-  const res = await fetch(EARN_PATH(`/v1/earn/vaults?${params}`), {
-    signal: AbortSignal.timeout(10000),
-  });
+  const url = EARN_PATH(`/v1/earn/vaults?${params}`);
+  console.log(`[earnApi] getVaults request: ${url}`);
+  
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
+    });
 
-  if (!res.ok) return [];
+    if (!res.ok) {
+      console.warn(`[earnApi] getVaults failed: ${res.status} ${res.statusText}`);
+      return [];
+    }
 
-  const data = await res.json();
-  const vaults: Vault[] = Array.isArray(data) ? data : (data.vaults ?? data.data ?? []);
+    const data = await res.json();
+    const vaults: Vault[] = Array.isArray(data) ? data : (data.vaults ?? data.data ?? []);
+    
+    // Filter for transactional vaults. APY can be 0 (discovery is better than none)
+    const filtered = vaults.filter((v) => v.isTransactional);
+    console.log(`[earnApi] getVaults: ${vaults.length} total -> ${filtered.length} transactional`);
+    
+    return filtered;
+  } catch (err) {
+    console.error("[earnApi] getVaults error:", err);
+    return [];
+  }
+}
 
-  // Only return transactional vaults with non-zero APY
-  return vaults.filter((v) => v.isTransactional && getBestApy(v) > 0);
+export async function getAllVaults(): Promise<Vault[]> {
+  return getVaults();
 }
 
 export async function getBestVault(chainId: number, assetAddress: string): Promise<Vault | null> {
@@ -106,4 +174,35 @@ export async function getPortfolioPositions(userAddress: string): Promise<Positi
 
   const data = (await res.json()) as PortfolioResponse | Position[];
   return Array.isArray(data) ? data : (data.positions ?? []);
+}
+
+export async function getTransactionHistory(userAddress: string): Promise<any[]> {
+  const url = `https://li.quest/v1/analytics/transfers?wallet=${userAddress}&limit=100`;
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  const transfers = data.transfers ?? data.data ?? (Array.isArray(data) ? data : []);
+
+  // Merge and deduplicate by transactionId/hash
+  const seen = new Set();
+  const lowerUser = userAddress.toLowerCase();
+  
+  return transfers.filter((t: any) => {
+    const id = t.transactionId || t.status?.transactionId || t.receiving?.txHash || t.sending?.txHash;
+    if (!id || seen.has(id)) return false;
+    
+    // Safety check: ensure our user is either the sender or receiver
+    const isUserFrom = t.fromAddress?.toLowerCase() === lowerUser;
+    const isUserTo = t.toAddress?.toLowerCase() === lowerUser || 
+                     t.receiving?.address?.toLowerCase() === lowerUser;
+    
+    if (!isUserFrom && !isUserTo) return false;
+
+    seen.add(id);
+    return true;
+  });
 }

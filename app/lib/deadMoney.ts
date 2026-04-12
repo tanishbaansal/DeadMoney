@@ -48,7 +48,7 @@ export function calcDailyLoss(yearlyLoss: number): number {
 }
 
 export function calcDeadMoneyScore(deployedUsd: number, totalUsd: number): number {
-  if (totalUsd === 0) return 100;
+  if (totalUsd === 0) return 0; // nothing detected = unknown, treat as worst
   return Math.round((deployedUsd / totalUsd) * 100);
 }
 
@@ -69,22 +69,33 @@ export function detectIdleAssets(
   // Build a set of deployed token addresses (chainId:address)
   const deployedKeys = new Set<string>();
   for (const pos of positions) {
+    // Guard: vault may be undefined if the API returns a stale/delisted position
+    if (!pos.vault?.asset) continue;
     const key = `${pos.chainId}:${pos.vault.asset.toLowerCase()}`;
     deployedKeys.add(key);
   }
 
+  console.log("[detectIdleAssets] deployedKeys:", [...deployedKeys]);
+
   const idle: IdleAsset[] = [];
 
   for (const bal of balances) {
-    if (bal.usdValue < MIN_IDLE_USD) continue;
-
     const key = `${bal.token.chainId}:${bal.token.address.toLowerCase()}`;
-    // If already deployed in a vault, skip
-    if (deployedKeys.has(key)) continue;
+
+    // if (bal.usdValue < MIN_IDLE_USD) {
+    //   console.log(`[detectIdleAssets] SKIP ${bal.token.symbol} chain${bal.token.chainId} — below $10 ($${bal.usdValue.toFixed(2)})`);
+    //   continue;
+    // }
+    if (deployedKeys.has(key)) {
+      console.log(`[detectIdleAssets] SKIP ${bal.token.symbol} chain${bal.token.chainId} — already deployed`);
+      continue;
+    }
 
     const bestVault = vaultMap.get(key) ?? null;
     const bestApy = bestVault ? getBestApyFromVault(bestVault) : 0;
     const yearlyLoss = calcYearlyLoss(bal.usdValue, bestApy);
+
+    console.log(`[detectIdleAssets] IDLE ${bal.token.symbol} chain${bal.token.chainId}: $${bal.usdValue.toFixed(0)}, vault=${bestVault?.name ?? "none"}, apy=${bestApy.toFixed(2)}%, loss=$${yearlyLoss.toFixed(0)}/yr`);
 
     idle.push({
       token: bal.token,
@@ -116,13 +127,26 @@ export function buildReport(
   positions: Position[],
   vaultMap: Map<string, Vault | null>
 ): DeadMoneyReport {
+  console.log("[buildReport] inputs — balances:", balances.length, "positions:", positions.length, "vaultMap size:", vaultMap.size);
+  console.log("[buildReport] balances:", balances.map(b => `${b.token.symbol}(chain${b.token.chainId})=$${b.usdValue.toFixed(0)}`));
+  console.log("[buildReport] positions:", positions.map(p => `${p.vault?.asset ?? "unknown"}(chain${p.chainId})`));
+  console.log("[buildReport] vaultMap keys:", [...vaultMap.keys()]);
+
   const idleAssets = detectIdleAssets(balances, positions, vaultMap);
+
+  console.log("[buildReport] idle assets found:", idleAssets.length);
+  idleAssets.forEach(a => {
+    console.log(`[buildReport]   ${a.token.symbol} chain${a.token.chainId}: $${a.usdValue.toFixed(0)} idle, APY=${a.bestApy.toFixed(2)}%, yearly loss=$${a.yearlyLossUsd.toFixed(0)}, vault=${a.bestVault?.name ?? "none"}`);
+  });
 
   const totalIdleUsd = idleAssets.reduce((s, a) => s + a.usdValue, 0);
   const totalDeployedUsd = positions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0);
   const totalUsd = totalIdleUsd + totalDeployedUsd;
   const totalYearlyLoss = idleAssets.reduce((s, a) => s + a.yearlyLossUsd, 0);
   const totalDailyLoss = idleAssets.reduce((s, a) => s + a.dailyLossUsd, 0);
+  const score = calcDeadMoneyScore(totalDeployedUsd, totalUsd);
+
+  console.log(`[buildReport] totalIdle=$${totalIdleUsd.toFixed(0)}, totalDeployed=$${totalDeployedUsd.toFixed(0)}, yearlyLoss=$${totalYearlyLoss.toFixed(0)}, score=${score}`);
 
   return {
     address,
@@ -131,7 +155,7 @@ export function buildReport(
     totalDeployedUsd,
     totalYearlyLossUsd: totalYearlyLoss,
     totalDailyLossUsd: totalDailyLoss,
-    deadMoneyScore: calcDeadMoneyScore(totalDeployedUsd, totalUsd),
+    deadMoneyScore: score,
     scannedAt: Date.now(),
   };
 }

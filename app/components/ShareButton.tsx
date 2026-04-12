@@ -44,7 +44,7 @@ export function ShareButton({ report }: ShareButtonProps) {
       <button
         onClick={copyLink}
         className={cn(
-          "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium",
+          "cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium",
           "border border-[#2a2a3a] text-[#9898a8]",
           "hover:text-[#f0f0f5] hover:border-[#3a3a4e]",
           "transition-all duration-200"

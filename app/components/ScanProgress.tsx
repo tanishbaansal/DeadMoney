@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 
@@ -13,6 +14,19 @@ interface ScanProgressProps {
 }
 
 export function ScanProgress({ currentStep }: ScanProgressProps) {
+  const [rollingLoss, setRollingLoss] = useState(847);
+
+  useEffect(() => {
+    const tick = () => {
+      const increment = Math.floor(Math.random() * 490) + 10;
+      setRollingLoss((prev) => prev + increment);
+      setTimeout(tick, Math.floor(Math.random() * 600) + 300);
+    };
+    const id = setTimeout(tick, 400);
+    return () => clearTimeout(id);
+  }, []);
+
+  const displayedLoss = rollingLoss.toLocaleString("en-US");
 
   return (
     <div className="flex flex-col items-center gap-8 py-20 px-6 min-h-screen bg-[#0a0a0f]">
@@ -91,11 +105,18 @@ export function ScanProgress({ currentStep }: ScanProgressProps) {
         })}
       </div>
 
-      {/* Static urgency message */}
-      <p className="text-xs text-[#5a5a6a] mt-4 text-center">
-        Wallets like yours lose an average of{" "}
-        <span className="text-[#ff2d2d] font-semibold">$3,400/year</span> to idle assets
-      </p>
+      {/* Rolling loss counter */}
+      <div className="text-center mt-2">
+        <p className="text-[#5a5a6a] text-xs mb-2 uppercase tracking-widest">
+          Estimated yearly loss found so far
+        </p>
+        <p className="font-mono text-4xl font-black text-[#ff2d2d] financial">
+          -${displayedLoss}
+        </p>
+        <p className="text-xs text-[#5a5a6a] mt-2">
+          Wallets like yours lose an average of <span className="text-[#ff2d2d]">$3,400/year</span>
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,9 +1,20 @@
 import { createPublicClient, http, isAddress } from "viem";
 import { mainnet } from "viem/chains";
 
+const alchemyKey = typeof window !== "undefined"
+  ? (import.meta.env.VITE_ALCHEMY_API_KEY as string | undefined)
+  : undefined;
+const isDev = typeof window !== "undefined" && import.meta.env.DEV;
+
+const ethRpc = alchemyKey
+  ? isDev
+    ? `/rpc/eth/v2/${alchemyKey}`
+    : `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`
+  : "https://ethereum.publicnode.com";
+
 const ethClient = createPublicClient({
   chain: mainnet,
-  transport: http("https://eth.llamarpc.com"),
+  transport: http(ethRpc),
 });
 
 export async function resolveAddress(input: string): Promise<string> {

@@ -1,16 +1,18 @@
 import { PrivyProvider } from "@privy-io/react-auth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { mainnet, base, arbitrum, optimism } from "wagmi/chains";
+import { mainnet, base, arbitrum, optimism, polygon, zkSync } from "wagmi/chains";
 import type { ReactNode } from "react";
 
 const wagmiConfig = createConfig({
-  chains: [mainnet, base, arbitrum, optimism],
+  chains: [mainnet, base, arbitrum, optimism, polygon, zkSync],
   transports: {
     [mainnet.id]: http(),
     [base.id]: http(),
     [arbitrum.id]: http(),
     [optimism.id]: http(),
+    [polygon.id]: http(),
+    [zkSync.id]: http(),
   },
 });
 
@@ -25,7 +27,7 @@ export function Providers({ children }: { children: ReactNode }) {
       config={{
         appearance: { theme: "dark" },
         defaultChain: base,
-        supportedChains: [mainnet, base, arbitrum, optimism],
+        supportedChains: [mainnet, base, arbitrum, optimism, polygon, zkSync],
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },
       }}
     >

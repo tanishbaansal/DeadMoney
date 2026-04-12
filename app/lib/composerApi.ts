@@ -47,6 +47,7 @@ export interface ComposerQuote {
     toAmountMin: string;
     gasCosts: Array<{ amountUSD: string; amount: string }>;
     executionDuration: number;
+    approvalAddress?: string;
   };
   transactionRequest: TransactionRequest;
 }

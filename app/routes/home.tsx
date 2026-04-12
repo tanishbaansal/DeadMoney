@@ -1,5 +1,5 @@
 import type { Route } from "./+types/home";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { usePrivy } from "@privy-io/react-auth";
 import { AddressInput } from "~/components/AddressInput";
 import { cn } from "~/lib/utils";
@@ -34,19 +34,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-[#f0f0f5] flex flex-col">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-md border-b border-[#1e1e2c] h-16 flex items-center justify-between px-6">
-        <Link to="/" className="font-mono font-bold text-[#f0f0f5] text-lg hover:text-white transition-colors">
-          💀 Dead Money
-        </Link>
-        <button
-          onClick={handleConnectAndScan}
-          className="px-4 py-2 rounded-lg text-sm font-medium border border-[#2a2a3a] text-[#9898a8] hover:text-[#f0f0f5] hover:border-[#3a3a4e] transition-all duration-200"
-        >
-          {authenticated ? "My Wallet →" : "Connect Wallet"}
-        </button>
-      </nav>
-
       {/* Hero */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 relative overflow-hidden">
         {/* Radial bg gradient */}

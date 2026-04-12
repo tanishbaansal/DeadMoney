@@ -9,6 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import { Providers } from "./providers";
+import { Navbar } from "./components/Navbar";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -45,6 +46,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Providers>
+      <Navbar />
       <Outlet />
     </Providers>
   );

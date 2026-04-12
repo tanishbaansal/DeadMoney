@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router";
+import { useNavigate } from "react-router";
 import type { Route } from "./+types/scan";
 import { resolveAddress, shortenAddress } from "~/lib/ens";
 import { useTokenBalances } from "~/hooks/useTokenBalances";
@@ -9,6 +9,7 @@ import { buildReport } from "~/lib/deadMoney";
 import type { DeadMoneyReport as Report, IdleAsset } from "~/lib/deadMoney";
 import { ScanProgress } from "~/components/ScanProgress";
 import { DeadMoneyReport } from "~/components/DeadMoneyReport";
+import { MyDeposits } from "~/components/MyDeposits";
 
 // Lightweight server loader — just passes the raw param through.
 // ENS resolution happens client-side to avoid viem Node.js issues in SSR.
@@ -30,9 +31,9 @@ export function meta({ data }: Route.MetaArgs) {
 }
 
 function getScanStep(balanceStatus: string, portfolioStatus: string, vaultStatus: string): number {
-  if (balanceStatus !== "done") return 0;
-  if (portfolioStatus !== "done") return 1;
-  if (vaultStatus !== "done") return 2;
+  if (balanceStatus === "loading") return 0;
+  if (portfolioStatus === "loading") return 1;
+  if (vaultStatus === "loading") return 2;
   return 3;
 }
 
@@ -50,26 +51,31 @@ export default function ScanPage({ loaderData }: Route.ComponentProps) {
       .catch(() => setResolveError("Could not resolve address or ENS name."));
   }, [rawAddress]);
 
-  const { balances, status: balanceStatus } = useTokenBalances(resolvedAddress);
+  const { balances, status: balanceStatus, refetch: refetchBalances } = useTokenBalances(resolvedAddress);
   const { positions, status: portfolioStatus, refetch: refetchPortfolio } = usePortfolio(resolvedAddress);
-  const { vaultMap, status: vaultStatus } = useVaults(
-    balances,
-    balanceStatus === "done" && portfolioStatus === "done"
-  );
+
+  const isReadyForVaults = (balanceStatus === "done" || balanceStatus === "error") && 
+                           (portfolioStatus === "done" || portfolioStatus === "error");
+
+  const { vaultMap, status: vaultStatus } = useVaults(balances, isReadyForVaults);
 
   const currentStep = getScanStep(balanceStatus, portfolioStatus, vaultStatus);
-  const isDone = !!resolvedAddress && vaultStatus === "done" && balanceStatus === "done" && portfolioStatus === "done";
+  const isDone = !!resolvedAddress && 
+                 (vaultStatus === "done" || vaultStatus === "error") && 
+                 (balanceStatus === "done" || balanceStatus === "error") && 
+                 (portfolioStatus === "done" || portfolioStatus === "error");
 
   useEffect(() => {
     if (!isDone || !resolvedAddress) return;
     setReport(buildReport(resolvedAddress, balances, positions, vaultMap));
-  }, [isDone]);
+  }, [isDone, resolvedAddress, balances, positions, vaultMap]);
 
   function handleFixed(_asset: IdleAsset) {
-    refetchPortfolio();
+    // Trigger background refetch silently
     setTimeout(() => {
-      if (resolvedAddress) setReport(buildReport(resolvedAddress, balances, positions, vaultMap));
-    }, 2000);
+      refetchBalances();
+      refetchPortfolio();
+    }, 3000); // Shorter wait
   }
 
   if (resolveError) {
@@ -85,34 +91,27 @@ export default function ScanPage({ loaderData }: Route.ComponentProps) {
     );
   }
 
-  if (!isDone || !report) {
-    return (
-      <>
-        <nav className="sticky top-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-md border-b border-[#1e1e2c] h-16 flex items-center px-6">
-          <Link to="/" className="font-mono font-bold text-[#f0f0f5] hover:text-white transition-colors">
-            💀 Dead Money
-          </Link>
-        </nav>
-        <ScanProgress currentStep={currentStep} />
-      </>
-    );
+  if (!report) {
+    return <ScanProgress currentStep={currentStep} />;
   }
 
   return (
-    <>
-      <nav className="sticky top-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-md border-b border-[#1e1e2c] h-16 flex items-center justify-between px-6">
-        <Link to="/" className="font-mono font-bold text-[#f0f0f5] hover:text-white transition-colors">
-          💀 Dead Money
-        </Link>
-        <Link
-          to="/"
-          className="text-sm text-[#9898a8] hover:text-[#f0f0f5] transition-colors"
-        >
-          ← Scan another wallet
-        </Link>
-      </nav>
-      <DeadMoneyReport report={report} onFixed={handleFixed} />
-    </>
+    <div className="pb-20">
+      <DeadMoneyReport 
+        report={report} 
+        onFixed={handleFixed} 
+        activePositions={positions}
+      />
+      {positions.length > 0 && resolvedAddress && (
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+           <MyDeposits 
+             positions={positions} 
+             walletAddress={resolvedAddress} 
+             onWithdrawn={() => handleFixed(null as any)}
+           />
+        </div>
+      )}
+    </div>
   );
 }
 
