@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import type { Route } from "./+types/scan";
+import { usePrivy } from "@privy-io/react-auth";
 import { resolveAddress, shortenAddress } from "~/lib/ens";
 import { useTokenBalances } from "~/hooks/useTokenBalances";
 import { usePortfolio } from "~/hooks/usePortfolio";
@@ -41,10 +42,23 @@ function getScanStep(balanceStatus: string, portfolioStatus: string, vaultStatus
 
 export default function ScanPage({ loaderData }: Route.ComponentProps) {
   const { rawAddress } = loaderData;
+  const { authenticated, user } = usePrivy();
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const navigate = useNavigate();
+  const connectedAddress =
+    user?.wallet?.address ?? user?.linkedAccounts?.find((a) => a.type === "wallet")?.address ?? null;
+  const canFixScannedWallet =
+    !!authenticated &&
+    !!connectedAddress &&
+    !!resolvedAddress &&
+    connectedAddress.toLowerCase() === resolvedAddress.toLowerCase();
+  const fixDisabledReason = !authenticated
+    ? "Connect your wallet to use Fix This."
+    : connectedAddress && resolvedAddress && connectedAddress.toLowerCase() !== resolvedAddress.toLowerCase()
+      ? "Connect your wallet to use Fix This on your assets."
+      : "Fix unavailable.";
 
   // Resolve ENS client-side
   useEffect(() => {
@@ -106,6 +120,8 @@ export default function ScanPage({ loaderData }: Route.ComponentProps) {
           report={report}
           onFixed={handleFixed}
           activePositions={positions}
+          canFix={canFixScannedWallet}
+          fixDisabledReason={fixDisabledReason}
         />
         <div className="mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 pb-12">
           <ShareReportCard report={report} />

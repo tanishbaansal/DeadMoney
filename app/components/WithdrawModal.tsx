@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { X, Loader2, CheckCircle2, AlertCircle, ArrowLeftRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { useWaitForTransactionReceipt, useReadContract } from "wagmi";
@@ -36,7 +36,6 @@ const CHAIN_MAP: Record<number, Chain> = {
 };
 
 const NATIVE_ADDR = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
-const UINT256_MAX = (1n << 256n) - 1n;
 
 // Conservative per-chain fallback gas limits for complex LI.FI composer calls.
 const FALLBACK_GAS_BY_CHAIN: Record<number, bigint> = {
@@ -73,6 +72,7 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
   const { wallets } = useWallets();
   const [approveHash, setApproveHash] = useState<`0x${string}` | undefined>();
   const [isApproving, setIsApproving] = useState(false);
+  const autoWithdrawHashRef = useRef<`0x${string}` | null>(null);
   const [modalState, setModalState] = useState<ModalState>(authenticated ? "loading" : "ready");
   const [txError, setTxError] = useState<string | null>(null);
 
@@ -109,6 +109,19 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
     return base > dustBuffer ? base - dustBuffer : 0n;
   }, [position.stakedTokenAmount, vault.decimals, onchainBalance]);
 
+  // Approve with a finite headroom (not infinite): required amount + 1 token buffer.
+  // This absorbs tiny rebase drift between quote and execution without perpetual allowance.
+  const approvalBuffer = useMemo(() => {
+    if (isNative) return 0n;
+    const decimals = BigInt(vault.decimals || 18);
+    return 10n ** decimals;
+  }, [isNative, vault.decimals]);
+
+  const requiredApprovalAmount = useMemo(
+    () => amountNeeded + approvalBuffer,
+    [amountNeeded, approvalBuffer],
+  );
+
   const quoteParams = useMemo(
     () =>
       authenticated && userAddress && amountNeeded > 0n
@@ -141,11 +154,9 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
   const needsApproval = useMemo(() => {
     if (isNative) return false;
     if (allowance == null) return true;
-    // Compare against the full live balance, not amountNeeded, because the
-    // aToken rebases between the quote build and execution and the composer
-    // diamond's transferFrom runs against the rebased balance.
-    return (allowance as bigint) < amountNeeded;
-  }, [isNative, allowance, amountNeeded]);
+    // Require allowance to cover withdraw amount + safety buffer.
+    return (allowance as bigint) < requiredApprovalAmount;
+  }, [isNative, allowance, requiredApprovalAmount]);
 
   useEffect(() => {
     if (approveHash && !isWaitingForApproval) {
@@ -197,17 +208,14 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
     setTxError(null);
     try {
       const client = await getWalletClientForChain(position.chainId);
-      // Approve uint256.max — aTokens rebase between quote and execution, so
-      // any finite allowance can go stale by a few wei and cause the composer
-      // transferFrom to revert. Infinite approval is safe because the spender
-      // is LI.FI's diamond and only pulls what the route needs.
       const hash = await client.writeContract({
         chain: CHAIN_MAP[position.chainId],
         address: vault.address as `0x${string}`,
         abi: erc20Abi,
         functionName: "approve",
-        args: [spender as `0x${string}`, UINT256_MAX],
+        args: [spender as `0x${string}`, requiredApprovalAmount],
       });
+      autoWithdrawHashRef.current = null;
       setApproveHash(hash);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Approval failed";
@@ -215,7 +223,7 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
     } finally {
       setIsApproving(false);
     }
-  }, [spender, getWalletClientForChain, position.chainId, vault.address]);
+  }, [spender, getWalletClientForChain, position.chainId, vault.address, requiredApprovalAmount]);
 
   const resolveGasLimit = useCallback(
     async (
@@ -277,94 +285,119 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         throw new Error("Live balance is zero — nothing to withdraw.");
       }
 
-      // Back off by a larger margin for rebasing aTokens. The composer builds
-      // its calldata at quote time but the diamond's transferFrom runs with
-      // the balance at *execution* time — which for aTokens is a few wei
-      // larger. If fromAmount is exactly liveBal, the diamond's internal
-      // balance math can underflow when computing remainders. A 1000-wei
-      // buffer (fractions of a cent on 6-decimal stables) lets the diamond
-      // handle the rebased delta.
-      const dustBuffer = 1000n;
+      // Use an adaptive withdraw buffer to avoid edge-case underflow in route math
+      // when balances rebase or route internals subtract fees/rounding deltas.
+      const oneToken = 10n ** BigInt(vault.decimals || 18);
+      const minBuffer = oneToken / 200n; // 0.005 token
+      const pctBuffer = liveBal / 400n; // 0.25%
+      const dustBuffer = minBuffer > pctBuffer ? minBuffer : pctBuffer;
       const safeAmount = liveBal > dustBuffer ? liveBal - dustBuffer : 0n;
 
       if (safeAmount === 0n) {
         throw new Error("Live balance is zero — nothing to withdraw.");
       }
 
-      // Always re-quote with the live safe amount. The initial quote was
-      // built against a stale aToken balance from when the modal opened.
-      log("re-quoting with live amount...", safeAmount.toString());
-      const fresh = await getComposerQuote({
-        fromChain: chainId,
-        toChain: chainId,
-        fromToken: vault.address,
-        toToken: vault.asset,
-        fromAddress: userAddress,
-        toAddress: userAddress,
-        fromAmount: safeAmount.toString(),
-        slippage: 0.03,
-      });
-      const tx = fresh.transactionRequest;
-      const freshSpender = fresh.estimate.approvalAddress as `0x${string}` | undefined;
-      log("fresh quote", {
-        tool: fresh.tool,
-        to: tx.to,
-        value: tx.value,
-        gasLimit: tx.gasLimit,
-        fromAmount: fresh.action.fromAmount,
-        toAmountMin: fresh.estimate.toAmountMin,
-        approvalAddress: freshSpender,
-        dataLen: tx.data?.length,
-      });
+      // Try progressively smaller withdraw amounts to avoid edge-case route math underflow.
+      const amountCandidates = Array.from(
+        new Set(
+          [
+            safeAmount,
+            (safeAmount * 995n) / 1000n, // -0.5%
+            (safeAmount * 99n) / 100n, // -1%
+            (safeAmount * 98n) / 100n, // -2%
+            (safeAmount * 95n) / 100n, // -5%
+            (safeAmount * 90n) / 100n, // -10%
+          ]
+            .filter((v) => v > 0n)
+            .map((v) => v.toString()),
+        ),
+      ).map((v) => BigInt(v));
 
-      // Verify allowance against the *fresh* quote's approvalAddress — it may
-      // differ from the initial render-time spender, and the diamond will
-      // transferFrom against that exact address. If it's short, re-approve
-      // uint256.max inline so the user only has to confirm once.
-      if (!isNative && freshSpender) {
-        const liveAllowance = (await publicClient.readContract({
-          address: vault.address as `0x${string}`,
-          abi: erc20Abi,
-          functionName: "allowance",
-          args: [userAddress as `0x${string}`, freshSpender],
-        })) as bigint;
+      let tx: { to: string; data: string; value?: string; gasLimit?: string } | null = null;
+      let simulationError: string | null = null;
 
-        log("fresh allowance check", {
-          spender: freshSpender,
-          liveAllowance: liveAllowance.toString(),
-          safeAmount: safeAmount.toString(),
-        });
-
-        if (liveAllowance < safeAmount) {
-          log("approving fresh spender uint256.max inline...");
-          const approveClient = await getWalletClientForChain(chainId);
-          const approveTxHash = await approveClient.writeContract({
-            chain: CHAIN_MAP[chainId],
-            address: vault.address as `0x${string}`,
-            abi: erc20Abi,
-            functionName: "approve",
-            args: [freshSpender, UINT256_MAX],
+      for (const candidateAmount of amountCandidates) {
+        try {
+          log("re-quoting with live amount...", candidateAmount.toString());
+          const fresh = await getComposerQuote({
+            fromChain: chainId,
+            toChain: chainId,
+            fromToken: vault.address,
+            toToken: vault.asset,
+            fromAddress: userAddress,
+            toAddress: userAddress,
+            fromAmount: candidateAmount.toString(),
+            slippage: 0.03,
           });
-          log("inline approve tx", approveTxHash);
-          // Wait for inclusion so the simulation sees the updated allowance.
-          await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
+          const nextTx = fresh.transactionRequest;
+          const freshSpender = fresh.estimate.approvalAddress as `0x${string}` | undefined;
+          log("fresh quote", {
+            tool: fresh.tool,
+            to: nextTx.to,
+            value: nextTx.value,
+            gasLimit: nextTx.gasLimit,
+            fromAmount: fresh.action.fromAmount,
+            toAmountMin: fresh.estimate.toAmountMin,
+            approvalAddress: freshSpender,
+            dataLen: nextTx.data?.length,
+          });
+
+          // Verify allowance for this exact candidate route/spender.
+          if (!isNative && freshSpender) {
+            const liveAllowance = (await publicClient.readContract({
+              address: vault.address as `0x${string}`,
+              abi: erc20Abi,
+              functionName: "allowance",
+              args: [userAddress as `0x${string}`, freshSpender],
+            })) as bigint;
+
+            log("fresh allowance check", {
+              spender: freshSpender,
+              liveAllowance: liveAllowance.toString(),
+              safeAmount: candidateAmount.toString(),
+            });
+
+            const inlineApprovalAmount = candidateAmount + approvalBuffer;
+            if (liveAllowance < inlineApprovalAmount) {
+              log("approving fresh spender with finite buffered allowance inline...");
+              const approveClient = await getWalletClientForChain(chainId);
+              const approveTxHash = await approveClient.writeContract({
+                chain: CHAIN_MAP[chainId],
+                address: vault.address as `0x${string}`,
+                abi: erc20Abi,
+                functionName: "approve",
+                args: [freshSpender, inlineApprovalAmount],
+              });
+              log("inline approve tx", approveTxHash);
+              await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
+            }
+          }
+
+          // Simulate this candidate before asking wallet to sign.
+          await publicClient.call({
+            account: userAddress as `0x${string}`,
+            to: nextTx.to as `0x${string}`,
+            data: nextTx.data as `0x${string}`,
+            value: BigInt(nextTx.value ?? "0"),
+          });
+          log("composer simulation OK", { candidateAmount: candidateAmount.toString() });
+          tx = nextTx;
+          simulationError = null;
+          break;
+        } catch (simErr) {
+          const msg = simErr instanceof Error ? simErr.message : String(simErr);
+          simulationError = msg;
+          log("composer simulation reverted", {
+            candidateAmount: candidateAmount.toString(),
+            error: msg,
+          });
         }
       }
 
-      // Simulate the full composer call — surfaces revert reasons before
-      // prompting the wallet so users never see a Phantom "will revert" flag.
-      try {
-        await publicClient.call({
-          account: userAddress as `0x${string}`,
-          to: tx.to as `0x${string}`,
-          data: tx.data as `0x${string}`,
-          value: BigInt(tx.value ?? "0"),
-        });
-        log("composer simulation OK");
-      } catch (simErr) {
-        log("composer simulation reverted", simErr);
-        const msg = simErr instanceof Error ? simErr.message : String(simErr);
-        throw new Error(`Simulation reverted: ${msg.slice(0, 200)}`);
+      if (!tx) {
+        throw new Error(
+          `Simulation reverted for all withdraw candidates. Last error: ${(simulationError ?? "unknown").slice(0, 220)}`,
+        );
       }
 
       const walletClient = await getWalletClientForChain(chainId);
@@ -387,7 +420,7 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         colors: ["#7C3AED", "#00D4AA", "#F0F0F5"],
         origin: { x: 0.5, y: 0.5 },
       });
-      setTimeout(onWithdrawn, 2500);
+      setTimeout(onWithdrawn, 5000);
     } catch (err) {
       console.error("[WithdrawModal] withdraw failed", err);
       const msg = err instanceof Error ? err.message : "Transaction failed";
@@ -403,10 +436,22 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
     spender,
     isNative,
     amountNeeded,
+    approvalBuffer,
     getWalletClientForChain,
     resolveGasLimit,
     onWithdrawn,
   ]);
+
+  // One-click flow: once approval confirms and allowance updates, auto-start withdraw.
+  useEffect(() => {
+    if (!approveHash || isWaitingForApproval) return;
+    if (!quote || needsApproval) return;
+    if (modalState !== "ready" && modalState !== "error") return;
+    if (autoWithdrawHashRef.current === approveHash) return;
+
+    autoWithdrawHashRef.current = approveHash;
+    void handleWithdraw();
+  }, [approveHash, isWaitingForApproval, quote, needsApproval, modalState, handleWithdraw]);
 
   const gasEstimate = quote ? getGasEstimateUsd(quote) : "~$2.00";
   const chainName = CHAIN_NAMES[position.chainId as keyof typeof CHAIN_NAMES] ?? String(position.chainId);
@@ -430,6 +475,12 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
     typeof (vault as any).protocol === "string"
       ? (vault as any).protocol
       : (vault as any).protocol?.name ?? "Aave";
+  const headerLogo =
+    (position as any)?.stakedToken?.logoURI ??
+    (position as any)?.stakedToken?.logoUrl ??
+    vault.logoUrl ??
+    vault.protocolLogoUrl ??
+    null;
 
   return (
     <div
@@ -444,7 +495,6 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         className={cn(
           "relative z-10 w-full sm:max-w-[520px]",
           "rounded-t-[20px] sm:rounded-[20px] overflow-hidden",
-          "border border-[#464646]",
           "shadow-[0px_2px_12px_0px_rgba(73,73,73,0.25)]",
           "backdrop-blur-[37.65px]",
           "bg-[linear-gradient(180deg,rgba(14,11,20,0.92)_0%,rgba(31,9,69,0.78)_45%,rgba(14,11,20,0.92)_100%)]",
@@ -453,8 +503,19 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         <div className="flex flex-col gap-5 px-6 pt-6 pb-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-[rgba(255,71,74,0.15)] shrink-0 flex items-center justify-center">
-                <ArrowLeftRight className="w-5 h-5 text-[#FF474A]" strokeWidth={1.75} />
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-[#22222e] shrink-0 flex items-center justify-center">
+                {headerLogo ? (
+                  <img
+                    src={headerLogo}
+                    alt={vault.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "/logo-icon.svg";
+                    }}
+                  />
+                ) : (
+                  <img src="/logo-icon.svg" alt="" className="w-6 h-6 object-contain opacity-90" />
+                )}
               </div>
               <div className="flex flex-col gap-1 justify-center min-w-0">
                 <h2 className="font-medium text-white text-[20px] leading-none tracking-[0.6px] capitalize truncate">

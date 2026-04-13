@@ -113,19 +113,37 @@ export default function DepositsPage() {
             />
           </>
         ) : (
-          <div className="text-center py-20 rounded-3xl border border-dashed border-[#2a2a3a] bg-[#111118]">
-            <Sparkles className="w-12 h-12 text-[#5a5a6a] mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-[#f0f0f5] mb-2">No active deposits found</h2>
-            <p className="text-[#9898a8] max-w-sm mx-auto mb-6">
+          <section
+            className="rounded-[12px] backdrop-blur-[37.65px] px-6 sm:px-8 py-14 sm:py-16 flex flex-col items-center gap-8 text-center"
+            style={{
+              backgroundImage:
+                "linear-gradient(112.07deg, rgba(2, 9, 6, 0.9) 0%, rgba(0, 41, 33, 0.396) 98.22%)",
+            }}
+          >
+            <div className="flex flex-col items-center gap-5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#00a888]" strokeWidth={2} />
+                <span className="text-[12px] font-medium tracking-[0.48px] uppercase text-[#00a888]">
+                  Current Yield Status
+                </span>
+              </div>
+
+              <h2 className="text-[36px] sm:text-[48px] lg:text-[56px] leading-[1.05] font-medium text-white">
+                No Active <span className="text-[#00a888]">Deposits</span>
+              </h2>
+            </div>
+
+            <p className="text-white text-[16px] sm:text-[20px] max-w-[760px]">
               Scan your wallet to find idle assets and start earning yield in one click.
             </p>
+
             <button
-               onClick={() => navigate("/")}
-               className="px-6 py-2.5 rounded-xl bg-[#7c3aed] hover:bg-purple-500 text-white font-semibold transition-all"
+              onClick={() => navigate("/")}
+              className="cursor-pointer px-7 py-3 rounded-[10px] bg-[#c9f352] hover:bg-[#d4ff5e] text-black text-[16px] font-medium transition-colors active:scale-[0.99]"
             >
               Start Scanning
             </button>
-          </div>
+          </section>
         )}
       </div>
     </div>

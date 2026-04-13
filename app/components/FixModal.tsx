@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { X, Loader2, CheckCircle2, AlertCircle, Lock } from "lucide-react";
 import confetti from "canvas-confetti";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
@@ -28,6 +28,7 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
   const { wallets } = useWallets();
   const [approveHash, setApproveHash] = useState<`0x${string}` | undefined>();
   const [isApproving, setIsApproving] = useState(false);
+  const autoDepositHashRef = useRef<`0x${string}` | null>(null);
   
   const { isLoading: isWaitingForApproval } = useWaitForTransactionReceipt({
     hash: approveHash,
@@ -142,6 +143,7 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
         functionName: "approve",
         args: [spender as `0x${string}`, amountNeeded],
       });
+      autoDepositHashRef.current = null;
       setApproveHash(hash);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Approval failed";
@@ -165,7 +167,7 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
       });
       setModalState("success");
       confetti({ particleCount: 60, spread: 80, colors: ["#7C3AED", "#00D4AA", "#F0F0F5"], origin: { x: 0.5, y: 0.5 } });
-      setTimeout(onFixed, 3500);
+      setTimeout(onFixed, 5000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Transaction failed";
       setTxError(msg.toLowerCase().includes("user rejected") ? "Transaction cancelled." : msg.slice(0, 120));
@@ -177,6 +179,17 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
   const yearlyEarnings = formatUsd(asset.yearlyLossUsd);
   const gasEstimate = quote ? getGasEstimateUsd(quote) : "~$2.00";
   const chainName = CHAIN_NAMES[asset.token.chainId as keyof typeof CHAIN_NAMES] ?? String(asset.token.chainId);
+
+  // One-click flow: once approval is confirmed and allowance updates, auto-start deposit.
+  useEffect(() => {
+    if (!approveHash || isWaitingForApproval) return;
+    if (!quote || needsApproval) return;
+    if (modalState !== "ready" && modalState !== "error") return;
+    if (autoDepositHashRef.current === approveHash) return;
+
+    autoDepositHashRef.current = approveHash;
+    void handleDeposit();
+  }, [approveHash, isWaitingForApproval, quote, needsApproval, modalState, handleDeposit]);
   const vaultUrl = vault ? getVaultUrl(vault) : "https://app.li.fi/earn";
 
   const baseApy = vault?.analytics?.apy?.base;

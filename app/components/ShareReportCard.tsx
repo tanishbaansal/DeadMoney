@@ -49,6 +49,23 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
     encodeURIComponent(
       `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="#1b4e9b" stroke="#2a2a3a" stroke-width="2"/><circle cx="18" cy="18" r="12" fill="#2f7dd1"/><text x="18" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#ffffff">$</text></svg>`
     );
+  const ethIcon =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="#0e0f20" stroke="#2a2a3a" stroke-width="2"/><g transform="translate(18 18)"><polygon points="0,-12 -7,0 0,4 7,0" fill="#8a92b2"/><polygon points="0,-9 -5,0 0,3 5,0" fill="#c3c9df"/><polygon points="0,6 -7,1 0,12 7,1" fill="#6f789c"/><polygon points="0,8 -5,2 0,11 5,2" fill="#a8b1d1"/></g></svg>`
+    );
+  const usdcIcon =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="#2775CA" stroke="#2a2a3a" stroke-width="2"/><text x="18" y="23" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="14" fill="#ffffff">$</text></svg>`
+    );
+
+  function getShareFallbackIcon(symbol?: string) {
+    const s = (symbol ?? "").toUpperCase();
+    if (s === "ETH" || s === "WETH") return ethIcon;
+    if (s === "USDC" || s === "USDC.E" || s === "USDT" || s === "DAI") return usdcIcon;
+    return tokenPlaceholder;
+  }
 
   async function copyCardImage() {
     if (!cardRef.current || copying) return;
@@ -68,12 +85,14 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
       for (const image of cloneImages) {
         const src = image.getAttribute("src") ?? "";
         const isRemoteHttp = /^https?:\/\//i.test(src);
+        const symbol = image.getAttribute("data-token-symbol") ?? "";
+        const fallback = getShareFallbackIcon(symbol);
         if (isRemoteHttp) {
-          image.setAttribute("src", tokenPlaceholder);
+          image.setAttribute("src", fallback);
           image.removeAttribute("srcset");
         }
         image.onerror = () => {
-          image.setAttribute("src", tokenPlaceholder);
+          image.setAttribute("src", fallback);
           image.removeAttribute("srcset");
         };
       }
@@ -232,6 +251,7 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
                 <img
                   src={topAsset.token.logoUrl}
                   alt=""
+                  data-token-symbol={topAsset.token.symbol}
                   className="w-9 h-9 rounded-full border border-[#2a2a3a] shrink-0"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = "none";

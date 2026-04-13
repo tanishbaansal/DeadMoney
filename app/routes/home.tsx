@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Route } from "./+types/home";
 import { Link, useNavigate } from "react-router";
 import { usePrivy } from "@privy-io/react-auth";
@@ -64,6 +64,10 @@ export default function Home() {
       // noop
     }
   }
+
+  const lostToDeadMoney = useCountUp(2.3, 1400, 1);
+  const walletsRevived = useCountUp(4200, 1600, 0);
+  const bestApy = useCountUp(1023, 1700, 0);
 
   return (
     <div
@@ -216,14 +220,40 @@ export default function Home() {
 
           {/* Stats */}
           <div className="flex flex-wrap items-center justify-center gap-x-[120px] gap-y-10 text-white">
-            <StatBlock value="$2.3M" label="Lost to dead money" />
-            <StatBlock value="4,200+" label="Wallets revived" />
-            <StatBlock value="1023%" label="Best APY right now" />
+            <StatBlock value={`$${lostToDeadMoney.toFixed(1)}M`} label="Lost to dead money" />
+            <StatBlock value={`${Math.round(walletsRevived).toLocaleString("en-US")}+`} label="Wallets revived" />
+            <StatBlock value={`${Math.round(bestApy)}%`} label="Best APY right now" />
           </div>
         </div>
       </main>
     </div>
   );
+}
+
+function useCountUp(target: number, durationMs: number, decimals = 0) {
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    const start = 0;
+    const startTime = performance.now();
+    const easeOutExpo = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
+    const factor = Math.pow(10, decimals);
+    let rafId = 0;
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - startTime) / durationMs, 1);
+      const next = start + (target - start) * easeOutExpo(progress);
+      setValue(Math.round(next * factor) / factor);
+      if (progress < 1) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [target, durationMs, decimals]);
+
+  return value;
 }
 
 function StatBlock({ value, label }: { value: string; label: string }) {

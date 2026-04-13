@@ -6,14 +6,23 @@ import { getBestApy, getVaultUrl } from "~/lib/earnApi";
 import { CHAIN_NAMES } from "~/lib/tokens";
 import { FixModal } from "./FixModal";
 import { cn } from "~/lib/utils";
+import { calculateYearlyYield } from "~/lib/deposits";
 
 interface DeadMoneyReportProps {
   report: Report;
   onFixed: (asset: IdleAsset) => void;
   activePositions?: any[];
+  canFix?: boolean;
+  fixDisabledReason?: string;
 }
 
-export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadMoneyReportProps) {
+export function DeadMoneyReport({
+  report,
+  onFixed,
+  activePositions = [],
+  canFix = true,
+  fixDisabledReason = "Connect your wallet to use Fix This on your assets.",
+}: DeadMoneyReportProps) {
   const [fixingAsset, setFixingAsset] = useState<IdleAsset | null>(null);
   const [fixedKeys, setFixedKeys] = useState<Set<string>>(new Set());
   const [animatedLoss, setAnimatedLoss] = useState(0);
@@ -38,6 +47,8 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, [report.totalYearlyLossUsd]);
+
+   const yearlySaved = calculateYearlyYield(activePositions);
 
   function handleFixed(asset: IdleAsset) {
     const key = `${asset.token.chainId}:${asset.token.address}`;
@@ -67,35 +78,30 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
         {/* Hero card */}
         {isHealthy ? (
           <section
-            className="relative rounded-[12px] overflow-hidden px-6 py-10 sm:py-14 flex flex-col items-center gap-6 sm:gap-8 backdrop-blur-xl"
+            className="rounded-[12px] backdrop-blur-[37.65px] px-6 sm:px-8 py-10 flex flex-col items-center gap-10"
             style={{
               backgroundImage:
-                "linear-gradient(91deg, rgba(2,9,6,0.6) 0%, rgba(6,70,58,0.6) 100%)",
+                "linear-gradient(112.07deg, rgba(2, 9, 6, 0.9) 0%, rgba(0, 41, 33, 0.396) 98.22%)",
             }}
           >
-            <div
-              aria-hidden
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(0,168,136,0.25) 0%, rgba(2,3,19,0) 70%)",
-              }}
-            />
-            <div className="relative z-10 text-5xl">✨</div>
-            <div className="relative z-10 flex flex-col items-center gap-4 sm:gap-6 text-center">
-              <p className="text-[11px] sm:text-[12px] font-medium uppercase tracking-[0.48px] text-white">
-                Your Money Is Working
-              </p>
-              <p
-                className="text-[#00a888] font-medium leading-none"
-                style={{ fontSize: "clamp(36px, 6vw, 64px)" }}
-              >
-                No Dead Money Detected
-              </p>
+            <div className="flex flex-col items-center gap-6 text-center">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-[#00a888]" strokeWidth={2} />
+                <span className="text-[12px] font-medium tracking-[0.48px] uppercase text-[#00a888]">
+                  Current Yield Status
+                </span>
+              </div>
+
+              <h1 className="text-[40px] sm:text-[56px] lg:text-[64px] leading-[1.05] font-medium text-white">
+                Your Money Is <span className="text-[#00a888]">Working!</span>
+              </h1>
             </div>
-            <p className="relative z-10 max-w-[760px] text-center text-[16px] sm:text-[20px] leading-snug">
-              All actionable assets are already earning yield.{" "}
-              <span className="font-bold text-[#00a888]">Nice work.</span>
+            <p className="text-white text-[16px] sm:text-[20px] max-w-[772px]">
+              You are saving{" "}
+              <span className="text-[#00a888] font-bold text-[22px] sm:text-[32px] align-baseline">
+                {formatUsd(yearlySaved)}
+              </span>{" "}
+              per year by keeping your assets in yield-bearing vaults.
             </p>
           </section>
         ) : (
@@ -237,8 +243,15 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
                       <span className="text-[12px] text-[#01c39e] font-bold">✓ Earning {formatApy(asset.bestApy)}</span>
                     ) : asset.bestVault ? (
                       <button
-                        onClick={() => setFixingAsset(asset)}
-                        className="bg-[rgba(201,243,82,0.09)] hover:bg-[rgba(201,243,82,0.18)] rounded-[4px] px-5 py-2.5 text-[12px] font-bold text-[#c9f352] transition-colors"
+                        onClick={() => canFix && setFixingAsset(asset)}
+                        disabled={!canFix}
+                        title={!canFix ? fixDisabledReason : undefined}
+                        className={cn(
+                          "rounded-[4px] px-5 py-2.5 text-[12px] font-bold transition-colors",
+                          canFix
+                            ? "bg-[rgba(201,243,82,0.09)] hover:bg-[rgba(201,243,82,0.18)] text-[#c9f352] cursor-pointer"
+                            : "bg-[rgba(201,243,82,0.06)] text-[#6d744d] cursor-not-allowed"
+                        )}
                       >
                         Fix This
                       </button>
@@ -275,8 +288,15 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
                   </div>
                   {!isFixed && asset.bestVault && (
                     <button
-                      onClick={() => setFixingAsset(asset)}
-                      className="w-full bg-[rgba(201,243,82,0.09)] hover:bg-[rgba(201,243,82,0.18)] rounded-[4px] py-2.5 text-[13px] font-bold text-[#c9f352] transition-colors"
+                      onClick={() => canFix && setFixingAsset(asset)}
+                      disabled={!canFix}
+                      title={!canFix ? fixDisabledReason : undefined}
+                      className={cn(
+                        "w-full rounded-[4px] py-2.5 text-[13px] font-bold transition-colors",
+                        canFix
+                          ? "bg-[rgba(201,243,82,0.09)] hover:bg-[rgba(201,243,82,0.18)] text-[#c9f352] cursor-pointer"
+                          : "bg-[rgba(201,243,82,0.06)] text-[#6d744d] cursor-not-allowed"
+                      )}
                     >
                       Fix This
                     </button>
