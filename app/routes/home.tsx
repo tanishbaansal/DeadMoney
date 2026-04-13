@@ -67,7 +67,7 @@ export default function Home() {
 
   return (
     <div
-      className="relative min-h-screen w-full overflow-hidden bg-[#020313] text-white"
+      className="relative w-full overflow-hidden bg-[#020313] text-white"
       style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
     >
       <PageBackground />
@@ -76,7 +76,7 @@ export default function Home() {
       <Navbar />
 
       {/* Main content */}
-      <main className="relative z-10 flex min-h-[calc(100vh-68px)] items-center justify-center px-6 py-16">
+      <main className="relative z-10 flex items-center justify-center px-6 py-16">
         <div className="flex w-full max-w-[1149px] flex-col items-center gap-12">
           {/* Eyebrow + Headline + Subtitle */}
           <div className="flex w-full flex-col items-center gap-6">

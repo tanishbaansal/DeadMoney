@@ -10,6 +10,7 @@ export function usePortfolio(address: string | null) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [status, setStatus] = useState<PortfolioStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [refetchTick, setRefetchTick] = useState(0);
 
   useEffect(() => {
     if (!address) return;
@@ -79,14 +80,24 @@ export function usePortfolio(address: string | null) {
               functionName: "balanceOf",
               args: [address as `0x${string}`],
             }) as bigint;
-            
-            // If balance is > 0, keep it. Also update the amount if it changed!
+
             const decimals = p.vault.decimals || (p.vault as any).token?.decimals || 18;
             const liveAmountString = formatUnits(bal, decimals);
             const liveAmount = parseFloat(liveAmountString);
-            
-            if (liveAmount > 0) {
-              console.log(`[usePortfolio] VERIFIED: ${p.vault.name} has ${liveAmountString} balance`);
+
+            // Drop dust. After a withdraw, rebasing aTokens leave a few wei
+            // behind (LI.FI routes can't pull 100% cleanly). Anything below
+            // $0.01 is counted as fully withdrawn so it doesn't show up as a
+            // phantom active position in MyDeposits / Dead Money.
+            const DUST_USD_THRESHOLD = 0.01;
+            const priorUsdPerUnit =
+              parseFloat(p.stakedTokenAmount) > 0
+                ? (p.stakedTokenAmountUsd ?? 0) / parseFloat(p.stakedTokenAmount)
+                : 0;
+            const liveUsd = liveAmount * priorUsdPerUnit;
+
+            if (liveAmount > 0 && liveUsd >= DUST_USD_THRESHOLD) {
+              console.log(`[usePortfolio] VERIFIED: ${p.vault.name} has ${liveAmountString} balance ($${liveUsd.toFixed(4)})`);
               return {
                 ...p,
                 vault: {
@@ -94,10 +105,10 @@ export function usePortfolio(address: string | null) {
                   decimals: decimals
                 },
                 stakedTokenAmount: liveAmountString,
-                stakedTokenAmountUsd: (liveAmount / (parseFloat(p.stakedTokenAmount) || liveAmount)) * p.stakedTokenAmountUsd
+                stakedTokenAmountUsd: liveUsd,
               };
             }
-            console.log(`[usePortfolio] REMOVED: ${p.vault.name} has 0 live balance`);
+            console.log(`[usePortfolio] REMOVED: ${p.vault.name} is dust or zero (${liveAmountString}, $${liveUsd.toFixed(4)})`);
             return null;
           } catch (e) {
             console.warn(`[usePortfolio] check failed for ${p.vault?.name || "vault"} on chain ${p.chainId}:`, e);
@@ -124,16 +135,11 @@ export function usePortfolio(address: string | null) {
 
     fetchAll();
     return () => { cancelled = true; };
-  }, [address]);
+  }, [address, refetchTick]);
 
   function refetch() {
     if (!address) return;
-    setStatus("loading");
-    // Simple refresh approach
-    getPortfolioPositions(address)
-      .then(setPositions)
-      .catch(() => {})
-      .finally(() => setStatus("done"));
+    setRefetchTick(t => t + 1);
   }
 
   return { positions, status, error, refetch };

@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { ArrowUpRight, Info, Sparkles } from "lucide-react";
 import type { DeadMoneyReport as Report, IdleAsset } from "~/lib/deadMoney";
 import { formatUsd, formatApy, getScoreLabel } from "~/lib/deadMoney";
-import { getVaultUrl } from "~/lib/earnApi";
+import { getBestApy, getVaultUrl } from "~/lib/earnApi";
 import { CHAIN_NAMES } from "~/lib/tokens";
 import { FixModal } from "./FixModal";
 import { cn } from "~/lib/utils";
@@ -17,22 +17,26 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
   const [fixingAsset, setFixingAsset] = useState<IdleAsset | null>(null);
   const [fixedKeys, setFixedKeys] = useState<Set<string>>(new Set());
   const [animatedLoss, setAnimatedLoss] = useState(0);
-  const hasAnimated = useRef(false);
 
   useEffect(() => {
-    if (hasAnimated.current) return;
-    hasAnimated.current = true;
     const target = report.totalYearlyLossUsd;
+    const start = animatedLoss;
     const duration = 1500;
     const startTime = performance.now();
     const easeOutExpo = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
+    let rafId = 0;
+
     function tick(now: number) {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      setAnimatedLoss(easeOutExpo(progress) * target);
-      if (progress < 1) requestAnimationFrame(tick);
+      setAnimatedLoss(start + (target - start) * easeOutExpo(progress));
+      if (progress < 1) {
+        rafId = requestAnimationFrame(tick);
+      }
     }
-    requestAnimationFrame(tick);
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
   }, [report.totalYearlyLossUsd]);
 
   function handleFixed(asset: IdleAsset) {
@@ -50,7 +54,7 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
 
   const activeUsd = activePositions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0);
   const annualYield = activePositions.reduce(
-    (s, p) => s + (p.stakedTokenAmountUsd ?? 0) * (p.vault?.apy ?? 0.05),
+    (s, p) => s + (p.stakedTokenAmountUsd ?? 0) * (getBestApy(p.vault) / 100),
     0
   );
 

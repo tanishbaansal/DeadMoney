@@ -25,9 +25,9 @@ export function meta({ data }: Route.MetaArgs) {
   if (!data) return [{ title: "Scan — Dead Money Tracker" }];
   const addr = shortenAddress(data.rawAddress);
   return [
-    { title: `💀 Dead Money Report: ${addr}` },
+    { title: `Dead Money Report: ${addr}` },
     { name: "description", content: `See how much dead money ${addr} has in idle assets. Powered by LI.FI.` },
-    { property: "og:title", content: `💀 Dead Money Report: ${addr}` },
+    { property: "og:title", content: `Dead Money Report: ${addr}` },
     { property: "og:description", content: `Find idle assets costing ${addr} thousands yearly. Fix in one click.` },
   ];
 }

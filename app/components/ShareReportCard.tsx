@@ -44,21 +44,41 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
       : `I just found ${formatUsd(report.totalYearlyLossUsd)} in dead money in my wallet 💀\n\nDead Money Score: ${report.deadMoneyScore}/100 (${info.label})\n${tokens} sitting idle\n\nFix yours: ${shareUrl}\n\nMade with @lifiprotocol #DeFiMullet #DeadMoney`
   );
   const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+  const tokenPlaceholder =
+    "data:image/svg+xml;utf8," +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="#1b4e9b" stroke="#2a2a3a" stroke-width="2"/><circle cx="18" cy="18" r="12" fill="#2f7dd1"/><text x="18" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#ffffff">$</text></svg>`
+    );
 
   async function copyCardImage() {
     if (!cardRef.current || copying) return;
     setCopying(true);
+    let holder: HTMLDivElement | null = null;
     try {
-      // Clone the card into an off-screen container at a fixed width so that
-      // viewport-relative units (vw, clamp) and flex wrapping are deterministic.
+      // Clone at the current rendered width so typography/wrapping matches exactly.
       const source = cardRef.current;
-      const FIXED_WIDTH = 480;
+      const FIXED_WIDTH = Math.max(320, Math.round(source.getBoundingClientRect().width));
       const clone = source.cloneNode(true) as HTMLDivElement;
       clone.style.width = `${FIXED_WIDTH}px`;
       clone.style.maxWidth = `${FIXED_WIDTH}px`;
       clone.style.transform = "none";
 
-      const holder = document.createElement("div");
+      // Replace remote images in the clone to avoid CORS failures during export.
+      const cloneImages = Array.from(clone.querySelectorAll("img"));
+      for (const image of cloneImages) {
+        const src = image.getAttribute("src") ?? "";
+        const isRemoteHttp = /^https?:\/\//i.test(src);
+        if (isRemoteHttp) {
+          image.setAttribute("src", tokenPlaceholder);
+          image.removeAttribute("srcset");
+        }
+        image.onerror = () => {
+          image.setAttribute("src", tokenPlaceholder);
+          image.removeAttribute("srcset");
+        };
+      }
+
+      holder = document.createElement("div");
       holder.style.position = "fixed";
       holder.style.left = "-10000px";
       holder.style.top = "0";
@@ -75,12 +95,17 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
       const dataUrl = await toPng(clone, {
         pixelRatio: 2,
         cacheBust: true,
+        // skipFonts: true,
+        imagePlaceholder:
+          "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==",
+        onImageErrorHandler: () => undefined,
         backgroundColor: "#020313",
         width: FIXED_WIDTH,
         height,
       });
 
       document.body.removeChild(holder);
+      holder = null;
 
       const blob = await (await fetch(dataUrl)).blob();
       if (navigator.clipboard && typeof ClipboardItem !== "undefined") {
@@ -98,6 +123,9 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
     } catch (err) {
       console.error("Failed to copy card image:", err);
     } finally {
+      if (holder && holder.parentNode) {
+        holder.parentNode.removeChild(holder);
+      }
       setCopying(false);
     }
   }
@@ -155,12 +183,6 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
               </p>
               <p className="text-[#e40000] font-medium leading-none text-[48px] sm:text-[56px]">
                 -{formatUsd(report.totalYearlyLossUsd)}
-              </p>
-              <p className="text-[15px] text-white">
-                Bleeding{" "}
-                <span className="font-medium text-[#e40000] text-[18px]">
-                  -{formatUsd(report.totalDailyLossUsd)}/day
-                </span>
               </p>
             </>
           )}

@@ -7,7 +7,6 @@ import { createWalletClient, custom, parseUnits, erc20Abi } from "viem";
 import { mainnet, base, arbitrum, optimism, polygon } from "viem/chains";
 import type { Chain } from "viem";
 import type { Position } from "~/lib/earnApi";
-import { getEarnWithdrawTx } from "~/lib/earnApi";
 import { formatUsd } from "~/lib/deadMoney";
 import { useComposerQuote } from "~/hooks/useComposerQuote";
 import { getComposerQuote, getGasEstimateUsd, getQuoteGasLimit } from "~/lib/composerApi";
@@ -37,6 +36,7 @@ const CHAIN_MAP: Record<number, Chain> = {
 };
 
 const NATIVE_ADDR = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+const UINT256_MAX = (1n << 256n) - 1n;
 
 // Conservative per-chain fallback gas limits for complex LI.FI composer calls.
 const FALLBACK_GAS_BY_CHAIN: Record<number, bigint> = {
@@ -141,6 +141,9 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
   const needsApproval = useMemo(() => {
     if (isNative) return false;
     if (allowance == null) return true;
+    // Compare against the full live balance, not amountNeeded, because the
+    // aToken rebases between the quote build and execution and the composer
+    // diamond's transferFrom runs against the rebased balance.
     return (allowance as bigint) < amountNeeded;
   }, [isNative, allowance, amountNeeded]);
 
@@ -194,12 +197,16 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
     setTxError(null);
     try {
       const client = await getWalletClientForChain(position.chainId);
+      // Approve uint256.max — aTokens rebase between quote and execution, so
+      // any finite allowance can go stale by a few wei and cause the composer
+      // transferFrom to revert. Infinite approval is safe because the spender
+      // is LI.FI's diamond and only pulls what the route needs.
       const hash = await client.writeContract({
         chain: CHAIN_MAP[position.chainId],
         address: vault.address as `0x${string}`,
         abi: erc20Abi,
         functionName: "approve",
-        args: [spender as `0x${string}`, amountNeeded],
+        args: [spender as `0x${string}`, UINT256_MAX],
       });
       setApproveHash(hash);
     } catch (err) {
@@ -208,7 +215,7 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
     } finally {
       setIsApproving(false);
     }
-  }, [spender, getWalletClientForChain, position.chainId, vault.address, amountNeeded]);
+  }, [spender, getWalletClientForChain, position.chainId, vault.address]);
 
   const resolveGasLimit = useCallback(
     async (
@@ -251,11 +258,6 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
       const chainId = position.chainId;
       const publicClient = getPublicClient(chainId as any);
 
-      // ── Preferred path: LI.FI Earn API withdraw endpoint ───────────────
-      // This is the LI.FI-native endpoint built specifically for exiting
-      // vault positions. It handles protocol-specific quirks (Aave rebasing,
-      // Morpho share math, Yearn v3 pps rounding) that the raw Composer
-      // /v1/quote endpoint gets wrong for aTokens.
       const liveBal = (await publicClient.readContract({
         address: vault.address as `0x${string}`,
         abi: erc20Abi,
@@ -275,115 +277,23 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         throw new Error("Live balance is zero — nothing to withdraw.");
       }
 
-      try {
-        log("requesting Earn withdraw tx...");
-        const earnRes = await getEarnWithdrawTx({
-          vaultAddress: vault.address,
-          chainId,
-          userAddress,
-          amount: liveBal.toString(),
-          asset: vault.asset,
-        });
-        log("earn withdraw response", earnRes);
-
-        const earnTx =
-          earnRes.transactionRequest ??
-          (Array.isArray(earnRes.transactionRequests)
-            ? earnRes.transactionRequests[earnRes.transactionRequests.length - 1]
-            : undefined);
-
-        if (earnTx?.to && earnTx.data) {
-          // Simulate before prompting the wallet.
-          try {
-            await publicClient.call({
-              account: userAddress as `0x${string}`,
-              to: earnTx.to as `0x${string}`,
-              data: earnTx.data as `0x${string}`,
-              value: BigInt(earnTx.value ?? "0"),
-            });
-            log("earn simulation OK");
-          } catch (simErr) {
-            log("earn simulation reverted, falling back to composer", simErr);
-            throw new Error("earn-sim-failed");
-          }
-
-          const walletClient = await getWalletClientForChain(chainId);
-          let gas: bigint;
-          try {
-            const est = await publicClient.estimateGas({
-              account: userAddress as `0x${string}`,
-              to: earnTx.to as `0x${string}`,
-              data: earnTx.data as `0x${string}`,
-              value: BigInt(earnTx.value ?? "0"),
-            });
-            gas = (est * 130n) / 100n;
-          } catch {
-            gas = earnTx.gasLimit ? (BigInt(earnTx.gasLimit) * 130n) / 100n : getFallbackGas(chainId);
-          }
-
-          log("sending earn tx", { to: earnTx.to, gas: gas.toString() });
-          const hash = await walletClient.sendTransaction({
-            chain: CHAIN_MAP[chainId],
-            to: earnTx.to as `0x${string}`,
-            data: earnTx.data as `0x${string}`,
-            value: BigInt(earnTx.value ?? "0"),
-            gas,
-          });
-          log("earn tx sent", hash);
-
-          setModalState("success");
-          confetti({
-            particleCount: 60,
-            spread: 80,
-            colors: ["#7C3AED", "#00D4AA", "#F0F0F5"],
-            origin: { x: 0.5, y: 0.5 },
-          });
-          setTimeout(onWithdrawn, 2500);
-          return;
-        }
-        log("earn response missing transactionRequest, falling back to composer");
-      } catch (earnErr) {
-        log("earn withdraw path failed, falling back to composer", earnErr);
-      }
-
-      // ── Fallback path: LI.FI Composer /v1/quote ────────────────────────
-      if (!quote) {
-        throw new Error("Earn withdraw unavailable and no Composer quote ready. Please retry.");
-      }
-
-      // Refetch live allowance before rebuilding the Composer quote.
-      const liveAllowance = spender
-        ? ((await publicClient.readContract({
-            address: vault.address as `0x${string}`,
-            abi: erc20Abi,
-            functionName: "allowance",
-            args: [userAddress as `0x${string}`, spender as `0x${string}`],
-          })) as bigint)
-        : 0n;
-
-      // Withdraw essentially the full balance. Only back off by a tiny fixed
-      // amount (covers 1-2 blocks of Aave liquidity-index drift between the
-      // quote build and execution) so the user gets ~100% of their position.
-      const dustBuffer = 100n;
+      // Back off by a larger margin for rebasing aTokens. The composer builds
+      // its calldata at quote time but the diamond's transferFrom runs with
+      // the balance at *execution* time — which for aTokens is a few wei
+      // larger. If fromAmount is exactly liveBal, the diamond's internal
+      // balance math can underflow when computing remainders. A 1000-wei
+      // buffer (fractions of a cent on 6-decimal stables) lets the diamond
+      // handle the rebased delta.
+      const dustBuffer = 1000n;
       const safeAmount = liveBal > dustBuffer ? liveBal - dustBuffer : 0n;
-
-      log("composer fallback preflight", {
-        liveAllowance: liveAllowance.toString(),
-        safeAmount: safeAmount.toString(),
-      });
 
       if (safeAmount === 0n) {
         throw new Error("Live balance is zero — nothing to withdraw.");
       }
-      if (!isNative && liveAllowance < safeAmount) {
-        throw new Error(
-          `Allowance (${liveAllowance}) is below required (${safeAmount}). Re-approve and retry.`,
-        );
-      }
 
-      // Always re-quote with the live safe amount. The previous quote may have
-      // been built against a slightly different aToken balance.
-      log("re-quoting with live amount...");
+      // Always re-quote with the live safe amount. The initial quote was
+      // built against a stale aToken balance from when the modal opened.
+      log("re-quoting with live amount...", safeAmount.toString());
       const fresh = await getComposerQuote({
         fromChain: chainId,
         toChain: chainId,
@@ -395,6 +305,7 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         slippage: 0.03,
       });
       const tx = fresh.transactionRequest;
+      const freshSpender = fresh.estimate.approvalAddress as `0x${string}` | undefined;
       log("fresh quote", {
         tool: fresh.tool,
         to: tx.to,
@@ -402,9 +313,43 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         gasLimit: tx.gasLimit,
         fromAmount: fresh.action.fromAmount,
         toAmountMin: fresh.estimate.toAmountMin,
-        approvalAddress: fresh.estimate.approvalAddress,
+        approvalAddress: freshSpender,
         dataLen: tx.data?.length,
       });
+
+      // Verify allowance against the *fresh* quote's approvalAddress — it may
+      // differ from the initial render-time spender, and the diamond will
+      // transferFrom against that exact address. If it's short, re-approve
+      // uint256.max inline so the user only has to confirm once.
+      if (!isNative && freshSpender) {
+        const liveAllowance = (await publicClient.readContract({
+          address: vault.address as `0x${string}`,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [userAddress as `0x${string}`, freshSpender],
+        })) as bigint;
+
+        log("fresh allowance check", {
+          spender: freshSpender,
+          liveAllowance: liveAllowance.toString(),
+          safeAmount: safeAmount.toString(),
+        });
+
+        if (liveAllowance < safeAmount) {
+          log("approving fresh spender uint256.max inline...");
+          const approveClient = await getWalletClientForChain(chainId);
+          const approveTxHash = await approveClient.writeContract({
+            chain: CHAIN_MAP[chainId],
+            address: vault.address as `0x${string}`,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [freshSpender, UINT256_MAX],
+          });
+          log("inline approve tx", approveTxHash);
+          // Wait for inclusion so the simulation sees the updated allowance.
+          await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
+        }
+      }
 
       // Simulate the full composer call — surfaces revert reasons before
       // prompting the wallet so users never see a Phantom "will revert" flag.

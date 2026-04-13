@@ -21,7 +21,7 @@ export function PageBackground() {
           backgroundRepeat: "no-repeat",
           backgroundPosition: "center center",
           backgroundSize: "cover",
-          filter: "blur(40px) brightness(2) saturate(1.1)",
+          filter: "blur(40px) brightness(1) saturate(1.1)",
           transformOrigin: "center center",
           animation: "nebulaDrift 120s linear infinite",
           willChange: "transform",

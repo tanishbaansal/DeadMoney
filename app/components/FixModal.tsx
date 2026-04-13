@@ -196,7 +196,7 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
       <div className={cn(
         "relative z-10 w-full sm:max-w-[520px]",
         "rounded-t-[20px] sm:rounded-[20px] overflow-hidden",
-        "border border-[#464646]",
+        "",
         "shadow-[0px_2px_12px_0px_rgba(73,73,73,0.25)]",
         "backdrop-blur-[37.65px]",
         "bg-[linear-gradient(180deg,rgba(14,11,20,0.92)_0%,rgba(31,9,69,0.78)_45%,rgba(14,11,20,0.92)_100%)]",
