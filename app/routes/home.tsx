@@ -1,131 +1,254 @@
+import { useState } from "react";
 import type { Route } from "./+types/home";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { usePrivy } from "@privy-io/react-auth";
-import { AddressInput } from "~/components/AddressInput";
-import { cn } from "~/lib/utils";
+import { resolveAddress } from "~/lib/ens";
+import { Navbar } from "~/components/Navbar";
+import { PageBackground } from "~/components/PageBackground";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Dead Money Tracker — Find idle crypto costing you thousands" },
+    { title: "Dead Money — Your idle crypto is bleeding" },
     {
       name: "description",
       content:
-        "Scan any wallet to find idle assets bleeding yield. Get your Dead Money Score and fix it in one click with LI.FI.",
+        "Scan any wallet to find idle assets bleeding yield. Connect your wallet and fix it in one click with LI.FI.",
     },
-    { property: "og:title", content: "💀 Dead Money Tracker" },
+    { property: "og:title", content: "Dead Money" },
     {
       property: "og:description",
-      content: "Your crypto is bleeding out. Find how much you're losing to idle assets.",
+      content: "Your idle crypto is bleeding. Fix it in one click.",
     },
   ];
 }
 
 export default function Home() {
-  const { authenticated, login, user } = usePrivy();
+  const { ready, authenticated, login, logout, user, connectWallet } = usePrivy();
   const navigate = useNavigate();
+  const [value, setValue] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleConnectAndScan() {
-    if (authenticated && user?.wallet?.address) {
-      navigate(`/scan/${user.wallet.address}`);
+  const walletAddress =
+    user?.wallet?.address ??
+    user?.linkedAccounts?.find((a) => a.type === "wallet")?.address ??
+    null;
+
+  async function handleScan(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setError("");
+    setSubmitting(true);
+    try {
+      const addr = await resolveAddress(trimmed);
+      navigate(`/scan/${addr}`);
+    } catch {
+      setError("Invalid address or ENS name");
+      setSubmitting(false);
+    }
+  }
+
+  function handleConnectWallet() {
+    if (authenticated && walletAddress) {
+      navigate(`/scan/${walletAddress}`);
     } else {
       login();
     }
   }
 
+  async function handleDisconnect() {
+    try {
+      await logout();
+    } catch {
+      // noop
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-[#f0f0f5] flex flex-col">
-      {/* Hero */}
-      <main className="flex-1 flex flex-col items-center justify-center px-4 relative overflow-hidden">
-        {/* Radial bg gradient */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(124,58,237,0.13),transparent)] pointer-events-none" />
+    <div
+      className="relative min-h-screen w-full overflow-hidden bg-[#020313] text-white"
+      style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+    >
+      <PageBackground />
 
-        {/* Floating particles */}
-        <Particles />
+      {/* Navbar */}
+      <Navbar />
 
-        <div className="relative z-10 flex flex-col items-center text-center max-w-2xl mx-auto gap-6">
-          {/* Eyebrow */}
-          <span className="text-xs font-medium tracking-widest uppercase text-[#7c3aed] bg-[#7c3aed]/10 border border-[#7c3aed]/20 px-4 py-1.5 rounded-full">
-            DeFi Mullet Hackathon — Track 3: UX Challenge
-          </span>
+      {/* Main content */}
+      <main className="relative z-10 flex min-h-[calc(100vh-68px)] items-center justify-center px-6 py-16">
+        <div className="flex w-full max-w-[1149px] flex-col items-center gap-12">
+          {/* Eyebrow + Headline + Subtitle */}
+          <div className="flex w-full flex-col items-center gap-6">
+            <div className="inline-flex items-center justify-center bg-[rgba(201,243,82,0.09)] px-5 py-3">
+              <p
+                className="whitespace-nowrap text-center text-[14px] font-bold text-[#c9f352]"
+                style={{ letterSpacing: "1.68px", lineHeight: "normal" }}
+              >
+                DEFI MULLET HACKATHON - TRACK 3: UX CHALLENGE
+              </p>
+            </div>
 
-          {/* H1 */}
-          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-[#f0f0f5] leading-tight">
-            Your crypto is{" "}
-            <span className="text-[#ff2d2d] text-glow-red">bleeding out.</span>
-          </h1>
+            <h1
+              className="m-0 w-full text-center text-white"
+              style={{
+                fontSize: "clamp(44px, 6.5vw, 96px)",
+                lineHeight: 1.05,
+                fontWeight: 400,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              <span>Your Idle Crypto Is </span>
+              <span className="text-[#c9f352]" style={{ fontWeight: 500 }}>
+                Bleeding
+              </span>
+            </h1>
 
-          {/* Subtitle */}
-          <p className="text-lg text-[#9898a8] max-w-md">
-            Find idle assets costing you thousands yearly.{" "}
-            <span className="text-[#f0f0f5]">Fix in one click.</span>
-          </p>
-
-          {/* Input */}
-          <div className="w-full mt-2">
-            <AddressInput />
+            <p
+              className="m-0 max-w-[760px] text-center text-white"
+              style={{
+                fontSize: "clamp(14px, 1.2vw, 19px)",
+                fontWeight: 500,
+                lineHeight: 1.5,
+              }}
+            >
+              <span>Every day your stablecoins sit idle, </span>
+              <span style={{ fontWeight: 700 }}>they bleed value</span>
+              <span>
+                . Connect your wallet and find out exactly how much you've
+                already lost —{" "}
+              </span>
+              <span className="text-[#c9f352]" style={{ fontWeight: 700 }}>
+                then fix it in one click.
+              </span>
+            </p>
           </div>
 
-          {/* Connect wallet shortcut */}
-          <button
-            onClick={handleConnectAndScan}
-            className="text-sm text-[#9898a8] hover:text-[#a78bfa] transition-colors underline underline-offset-4"
-          >
-            {authenticated ? "→ Scan my connected wallet" : "Or connect wallet to scan yours →"}
-          </button>
+          {/* CTA group */}
+          <div className="flex w-full flex-col items-center gap-6">
+            {/* Input row */}
+            <form
+              onSubmit={handleScan}
+              className="flex w-full max-w-[576px] items-center gap-[10px] border border-[#696969] bg-[#0e0e0e] p-[6px]"
+            >
+              <div className="flex flex-1 items-center px-2">
+                <input
+                  type="text"
+                  value={value}
+                  onChange={(e) => {
+                    setValue(e.target.value);
+                    if (error) setError("");
+                  }}
+                  placeholder="Paste a Wallet Address to Scan"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="w-full bg-transparent text-[20px] text-white placeholder:text-white/90 outline-none"
+                  style={{ fontWeight: 400 }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={submitting || !value.trim()}
+                className="flex shrink-0 items-center justify-center gap-2 bg-[#c9f352] px-4 py-[10px] transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="8.5"
+                    cy="8.5"
+                    r="5.5"
+                    stroke="black"
+                    strokeWidth="1.8"
+                  />
+                  <path
+                    d="M13 13L17 17"
+                    stroke="black"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span
+                  className="whitespace-nowrap text-[20px] text-black"
+                  style={{ fontWeight: 500 }}
+                >
+                  {submitting ? "Scanning..." : "Scan"}
+                </span>
+              </button>
+            </form>
 
-          {/* Social proof */}
-          <div className="flex items-center gap-3 bg-[#111118] border border-[#1e1e2c] rounded-2xl px-6 py-3 mt-2">
-            <span className="w-2 h-2 rounded-full bg-[#ff2d2d] animate-pulse flex-shrink-0" />
-            <span className="text-xs text-[#5a5a6a]">
-              <span className="text-[#9898a8]">$4.2M</span> dead money detected today
-              {" "}•{" "}
-              <span className="text-[#9898a8]">1,247</span> wallets scanned
-              {" "}•{" "}
-              avg <span className="text-[#ff2d2d]">$3,400/yr</span> lost
-            </span>
+            {error && (
+              <p className="m-0 text-center text-[13px] text-red-400">
+                {error}
+              </p>
+            )}
+
+            {/* OR divider */}
+            <div className="flex items-center justify-center gap-6">
+              <div className="h-px w-[130px] bg-[#696969]" />
+              <span
+                className="text-[13px] text-white"
+                style={{ fontWeight: 500 }}
+              >
+                OR
+              </span>
+              <div className="h-px w-[130px] bg-[#696969]" />
+            </div>
+
+            {/* Connect Wallet outline button */}
+            <button
+              type="button"
+              onClick={handleConnectWallet}
+              className="flex items-center justify-center border border-[#c9f352] px-6 py-4 transition-colors hover:bg-[rgba(201,243,82,0.09)]"
+            >
+              <span
+                className="whitespace-nowrap text-[20px] text-[#c9f352]"
+                style={{ fontWeight: 700 }}
+              >
+                {ready && authenticated ? "Scan My Wallet" : "Connect Wallet"}
+              </span>
+            </button>
+          </div>
+
+          {/* Stats */}
+          <div className="flex flex-wrap items-center justify-center gap-x-[120px] gap-y-10 text-white">
+            <StatBlock value="$2.3M" label="Lost to dead money" />
+            <StatBlock value="4,200+" label="Wallets revived" />
+            <StatBlock value="1023%" label="Best APY right now" />
           </div>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="py-6 text-center text-xs text-[#5a5a6a] border-t border-[#1e1e2c]">
-        Built with{" "}
-        <a href="https://li.fi" target="_blank" rel="noopener noreferrer" className="text-[#7c3aed] hover:text-[#a78bfa]">
-          LI.FI
-        </a>{" "}
-        Earn API + Composer · DeFi Mullet Hackathon 2026
-      </footer>
     </div>
   );
 }
 
-// Simple CSS-only particle dots
-function Particles() {
-  const dots = Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 3 + 1,
-    opacity: Math.random() * 0.3 + 0.05,
-    duration: Math.random() * 4 + 3,
-  }));
-
+function StatBlock({ value, label }: { value: string; label: string }) {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {dots.map((dot) => (
-        <div
-          key={dot.id}
-          className="absolute rounded-full bg-[#7c3aed]"
-          style={{
-            left: `${dot.x}%`,
-            top: `${dot.y}%`,
-            width: dot.size,
-            height: dot.size,
-            opacity: dot.opacity,
-            animation: `pulseRed ${dot.duration}s ease-in-out infinite`,
-          }}
-        />
-      ))}
+    <div className="flex flex-col items-center justify-center gap-[5px]">
+      <p
+        className="m-0 whitespace-nowrap text-white"
+        style={{
+          fontSize: "clamp(32px, 3.3vw, 52px)",
+          fontWeight: 400,
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+      </p>
+      <p
+        className="m-0 whitespace-nowrap text-center text-[14px] capitalize text-white"
+        style={{
+          fontWeight: 500,
+          letterSpacing: "0.7px",
+          lineHeight: "normal",
+        }}
+      >
+        {label}
+      </p>
     </div>
   );
 }

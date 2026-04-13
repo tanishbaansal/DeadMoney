@@ -93,9 +93,16 @@ export function detectIdleAssets(
 
     const bestVault = vaultMap.get(key) ?? null;
     const bestApy = bestVault ? getBestApyFromVault(bestVault) : 0;
+
+    // Skip if there's no vault opportunity OR the APY is zero — nothing to "fix"
+    if (!bestVault || bestApy <= 0) {
+      console.log(`[detectIdleAssets] SKIP ${bal.token.symbol} chain${bal.token.chainId} — no vault opportunity`);
+      continue;
+    }
+
     const yearlyLoss = calcYearlyLoss(bal.usdValue, bestApy);
 
-    console.log(`[detectIdleAssets] IDLE ${bal.token.symbol} chain${bal.token.chainId}: $${bal.usdValue.toFixed(0)}, vault=${bestVault?.name ?? "none"}, apy=${bestApy.toFixed(2)}%, loss=$${yearlyLoss.toFixed(0)}/yr`);
+    console.log(`[detectIdleAssets] IDLE ${bal.token.symbol} chain${bal.token.chainId}: $${bal.usdValue.toFixed(0)}, vault=${bestVault.name}, apy=${bestApy.toFixed(2)}%, loss=$${yearlyLoss.toFixed(0)}/yr`);
 
     idle.push({
       token: bal.token,
@@ -139,12 +146,20 @@ export function buildReport(
     console.log(`[buildReport]   ${a.token.symbol} chain${a.token.chainId}: $${a.usdValue.toFixed(0)} idle, APY=${a.bestApy.toFixed(2)}%, yearly loss=$${a.yearlyLossUsd.toFixed(0)}, vault=${a.bestVault?.name ?? "none"}`);
   });
 
+  // Only actionable idle (assets with a vault opportunity) counts as "dead money"
   const totalIdleUsd = idleAssets.reduce((s, a) => s + a.usdValue, 0);
   const totalDeployedUsd = positions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0);
-  const totalUsd = totalIdleUsd + totalDeployedUsd;
   const totalYearlyLoss = idleAssets.reduce((s, a) => s + a.yearlyLossUsd, 0);
   const totalDailyLoss = idleAssets.reduce((s, a) => s + a.dailyLossUsd, 0);
-  const score = calcDeadMoneyScore(totalDeployedUsd, totalUsd);
+
+  // Score: if nothing is actionable and user has deployed, they're at 100.
+  // If nothing is deployed and nothing is actionable, there's no dead money → 100.
+  let score: number;
+  if (idleAssets.length === 0) {
+    score = 100;
+  } else {
+    score = calcDeadMoneyScore(totalDeployedUsd, totalDeployedUsd + totalIdleUsd);
+  }
 
   console.log(`[buildReport] totalIdle=$${totalIdleUsd.toFixed(0)}, totalDeployed=$${totalDeployedUsd.toFixed(0)}, yearlyLoss=$${totalYearlyLoss.toFixed(0)}, score=${score}`);
 
@@ -163,12 +178,13 @@ export function buildReport(
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
 export function formatUsd(amount: number, showCents = false): string {
-  if (showCents || Math.abs(amount) < 100) {
+  if (showCents || Math.abs(amount) < 100 || Math.abs(amount) < 1) {
+    const decimals = Math.abs(amount) < 0.01 ? 2 : 2;
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
     }).format(amount);
   }
   return new Intl.NumberFormat("en-US", {

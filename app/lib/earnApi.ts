@@ -176,6 +176,67 @@ export async function getPortfolioPositions(userAddress: string): Promise<Positi
   return Array.isArray(data) ? data : (data.positions ?? []);
 }
 
+// ─── Withdraw via LI.FI Earn API ──────────────────────────────────────────
+// LI.FI's Earn API has a dedicated withdrawal endpoint that handles the
+// protocol-specific quirks of rebasing vault positions (aTokens, etc.).
+// This is what earn.li.fi itself uses, and is the correct LI.FI-native
+// path for exiting positions — the Composer /v1/quote endpoint routes
+// through an internal executor that breaks Aave withdraws.
+
+export interface EarnWithdrawTx {
+  to: string;
+  data: string;
+  value?: string;
+  from?: string;
+  chainId?: number;
+  gasLimit?: string;
+  gasPrice?: string;
+}
+
+export interface EarnWithdrawResponse {
+  transactionRequest?: EarnWithdrawTx;
+  transactionRequests?: EarnWithdrawTx[];
+  approvalAddress?: string;
+  [k: string]: unknown;
+}
+
+export async function getEarnWithdrawTx(params: {
+  vaultAddress: string;
+  chainId: number;
+  userAddress: string;
+  amount: string; // in smallest unit
+  asset?: string;
+}): Promise<EarnWithdrawResponse> {
+  const body = {
+    vaultAddress: params.vaultAddress,
+    chainId: params.chainId,
+    userAddress: params.userAddress,
+    amount: params.amount,
+    ...(params.asset ? { asset: params.asset } : {}),
+  };
+
+  const url = EARN_PATH(`/v1/earn/transactions/withdraw`);
+  const apiKey = (import.meta.env.VITE_COMPOSER_API_KEY as string) ?? "";
+  console.log(`[earnApi] withdraw request:`, url, body);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(apiKey ? { "x-lifi-api-key": apiKey } : {}),
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Earn withdraw failed: ${res.status} ${err.slice(0, 200)}`);
+  }
+
+  return res.json();
+}
+
 export async function getTransactionHistory(userAddress: string): Promise<any[]> {
   const url = `https://li.quest/v1/analytics/transfers?wallet=${userAddress}&limit=100`;
   const res = await fetch(url, {

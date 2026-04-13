@@ -25,7 +25,12 @@ export function Providers({ children }: { children: ReactNode }) {
     <PrivyProvider
       appId={PRIVY_APP_ID}
       config={{
-        appearance: { theme: "dark" },
+        loginMethods: ["wallet", "email"],
+        appearance: {
+          theme: "dark",
+          walletList: ["metamask", "coinbase_wallet", "rainbow", "phantom", "backpack"],
+          showWalletLoginFirst: true,
+        },
         defaultChain: base,
         supportedChains: [mainnet, base, arbitrum, optimism, polygon, zkSync],
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" } },

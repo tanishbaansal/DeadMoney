@@ -10,6 +10,7 @@ import type { DeadMoneyReport as Report, IdleAsset } from "~/lib/deadMoney";
 import { ScanProgress } from "~/components/ScanProgress";
 import { DeadMoneyReport } from "~/components/DeadMoneyReport";
 import { MyDeposits } from "~/components/MyDeposits";
+import { PageBackground } from "~/components/PageBackground";
 
 // Lightweight server loader — just passes the raw param through.
 // ENS resolution happens client-side to avoid viem Node.js issues in SSR.
@@ -96,21 +97,25 @@ export default function ScanPage({ loaderData }: Route.ComponentProps) {
   }
 
   return (
-    <div className="pb-20">
-      <DeadMoneyReport 
-        report={report} 
-        onFixed={handleFixed} 
-        activePositions={positions}
-      />
-      {positions.length > 0 && resolvedAddress && (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-           <MyDeposits 
-             positions={positions} 
-             walletAddress={resolvedAddress} 
-             onWithdrawn={() => handleFixed(null as any)}
-           />
-        </div>
-      )}
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#020313] pb-20">
+      <PageBackground />
+
+      <div className="relative z-10">
+        <DeadMoneyReport
+          report={report}
+          onFixed={handleFixed}
+          activePositions={positions}
+        />
+        {positions.length > 0 && resolvedAddress && (
+          <div className="mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 -mt-6 pb-12">
+            <MyDeposits
+              positions={positions}
+              walletAddress={resolvedAddress}
+              onWithdrawn={() => handleFixed(null as any)}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

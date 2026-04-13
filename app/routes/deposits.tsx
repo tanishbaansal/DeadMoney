@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { Loader2, TrendingUp, Sparkles } from "lucide-react";
 import { formatUsd } from "~/lib/deadMoney";
 import { calculateYearlyYield } from "~/lib/deposits";
+import { PageBackground } from "~/components/PageBackground";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -49,8 +50,9 @@ export default function DepositsPage() {
   const yearlySaved = calculateYearlyYield(positions);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-[#f0f0f5]">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="relative min-h-screen overflow-hidden bg-[#020313] text-[#f0f0f5]" style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
+      <PageBackground />
+      <div className="relative z-10 mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 py-10">
         
         {/* Hero Section */}
         <section className="text-center py-12 mb-8 relative">

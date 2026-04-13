@@ -5,6 +5,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -43,10 +44,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+function NavbarGate() {
+  const { pathname } = useLocation();
+  if (pathname === "/") return null;
+  return <Navbar />;
+}
+
 export default function App() {
   return (
     <Providers>
-      <Navbar />
+      <NavbarGate />
       <Outlet />
     </Providers>
   );

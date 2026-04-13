@@ -13,6 +13,8 @@ export interface ComposerQuoteParams {
   fromAddress: string;
   toAddress: string;
   fromAmount: string; // in smallest unit (e.g. USDC × 1e6)
+  slippage?: number;
+  maxPriceImpact?: number;
 }
 
 export interface TransactionRequest {
@@ -67,6 +69,9 @@ export async function getComposerQuote(params: ComposerQuoteParams): Promise<Com
     fromAmount: params.fromAmount,
   });
 
+  if (params.slippage) searchParams.set("slippage", String(params.slippage));
+  if (params.maxPriceImpact) searchParams.set("maxPriceImpact", String(params.maxPriceImpact));
+
   const res = await fetch(COMPOSER_PATH(`/v1/quote?${searchParams}`), {
     method: "GET",
     headers: {
@@ -85,8 +90,20 @@ export async function getComposerQuote(params: ComposerQuoteParams): Promise<Com
 }
 
 export function getGasEstimateUsd(quote: ComposerQuote): string {
-  const gasCost = quote.estimate.gasCosts?.[0];
-  if (!gasCost?.amountUSD) return "~$2.00";
-  const usd = parseFloat(gasCost.amountUSD);
-  return `~$${usd.toFixed(2)}`;
+  const total = quote.estimate.gasCosts?.reduce(
+    (sum, g) => sum + (parseFloat(g.amountUSD) || 0),
+    0,
+  ) ?? 0;
+  if (total <= 0) return "~$2.00";
+  return `~$${total.toFixed(2)}`;
+}
+
+export function getQuoteGasLimit(quote: ComposerQuote): bigint | null {
+  const fromTx = quote.transactionRequest?.gasLimit;
+  if (!fromTx) return null;
+  try {
+    return BigInt(fromTx);
+  } catch {
+    return null;
+  }
 }

@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Copy, Check, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowUpRight, Info } from "lucide-react";
 import type { DeadMoneyReport as Report, IdleAsset } from "~/lib/deadMoney";
 import { formatUsd, formatApy, getScoreLabel } from "~/lib/deadMoney";
 import { getVaultUrl } from "~/lib/earnApi";
-import { shortenAddress as shorten } from "~/lib/ens";
 import { CHAIN_NAMES } from "~/lib/tokens";
 import { ShareButton } from "./ShareButton";
-import { ShareCard } from "./ShareCard";
 import { FixModal } from "./FixModal";
 import { cn } from "~/lib/utils";
 
@@ -17,40 +15,26 @@ interface DeadMoneyReportProps {
 }
 
 export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadMoneyReportProps) {
-  const [copied, setCopied] = useState(false);
   const [fixingAsset, setFixingAsset] = useState<IdleAsset | null>(null);
   const [fixedKeys, setFixedKeys] = useState<Set<string>>(new Set());
   const [animatedLoss, setAnimatedLoss] = useState(0);
   const hasAnimated = useRef(false);
 
-  // Count-up animation for hero number
   useEffect(() => {
     if (hasAnimated.current) return;
     hasAnimated.current = true;
-
     const target = report.totalYearlyLossUsd;
     const duration = 1500;
     const startTime = performance.now();
-
-    function easeOutExpo(t: number) {
-      return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-    }
-
+    const easeOutExpo = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
     function tick(now: number) {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
       setAnimatedLoss(easeOutExpo(progress) * target);
       if (progress < 1) requestAnimationFrame(tick);
     }
-
     requestAnimationFrame(tick);
   }, [report.totalYearlyLossUsd]);
-
-  function copyAddress() {
-    navigator.clipboard.writeText(report.address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   function handleFixed(asset: IdleAsset) {
     const key = `${asset.token.chainId}:${asset.token.address}`;
@@ -59,315 +43,264 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
     onFixed(asset);
   }
 
-  const scoreInfo = getScoreLabel(report.deadMoneyScore);
   const dailyLoss = report.totalDailyLossUsd;
   const avgApy = report.idleAssets.length > 0
     ? report.idleAssets.reduce((s, a) => s + a.bestApy, 0) / report.idleAssets.length
     : 0;
+  const isHealthy = report.idleAssets.length === 0;
+
+  const activeUsd = activePositions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0);
+  const annualYield = activePositions.reduce(
+    (s, p) => s + (p.stakedTokenAmountUsd ?? 0) * (p.vault?.apy ?? 0.05),
+    0
+  );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-[#f0f0f5]">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        {/* Wallet header */}
-        <div className="flex items-center justify-between py-4 border-b border-[#1e1e2c] mb-2">
-          <button
-            onClick={copyAddress}
-            className="cursor-pointer flex items-center gap-2 font-mono text-sm text-[#9898a8] hover:text-[#f0f0f5] transition-colors"
+    <div
+      className="w-full text-white"
+      style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+    >
+      <div className="mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 py-8 lg:py-12 space-y-6">
+        {/* Hero card */}
+        {isHealthy ? (
+          <section
+            className="relative rounded-[12px] overflow-hidden px-6 py-10 sm:py-14 flex flex-col items-center gap-6 sm:gap-8 backdrop-blur-xl"
+            style={{
+              backgroundImage:
+                "linear-gradient(91deg, rgba(2,9,6,0.6) 0%, rgba(6,70,58,0.6) 100%)",
+            }}
           >
-            <span>{shorten(report.address)}</span>
-            {copied ? <Check className="w-3.5 h-3.5 text-[#00d4aa]" /> : <Copy className="w-3.5 h-3.5" />}
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="text-xs px-2.5 py-1 rounded-full bg-[#22222e] border border-[#2a2a3a] text-[#9898a8]">
-              {report.idleAssets.length} idle assets
-            </span>
-            <span className="text-xs px-2.5 py-1 rounded-full border border-[#2a2a3a] text-[#9898a8]">
-              Just now
-            </span>
-          </div>
-        </div>
-
-        {/* Hero loss number */}
-        <section className="text-center py-16 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_50%,rgba(255,45,45,0.1),transparent)] pointer-events-none" />
-
-          <p className="text-xs font-medium tracking-widest uppercase text-[#5a5a6a] mb-4">
-            Estimated Yearly Loss From Idle Assets
-          </p>
-
-          <h1
-            className="text-6xl sm:text-7xl lg:text-8xl font-black tracking-tighter text-[#ff2d2d] text-glow-red financial relative z-10"
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(0,168,136,0.25) 0%, rgba(2,3,19,0) 70%)",
+              }}
+            />
+            <div className="relative z-10 text-5xl">✨</div>
+            <div className="relative z-10 flex flex-col items-center gap-4 sm:gap-6 text-center">
+              <p className="text-[11px] sm:text-[12px] font-medium uppercase tracking-[0.48px] text-white">
+                Your Money Is Working
+              </p>
+              <p
+                className="text-[#00a888] font-medium leading-none"
+                style={{ fontSize: "clamp(36px, 6vw, 64px)" }}
+              >
+                No Dead Money Detected
+              </p>
+            </div>
+            <p className="relative z-10 max-w-[760px] text-center text-[16px] sm:text-[20px] leading-snug">
+              All actionable assets are already earning yield.{" "}
+              <span className="font-bold text-[#00a888]">Nice work.</span>
+            </p>
+          </section>
+        ) : (
+          <section
+            className="relative rounded-[12px] overflow-hidden px-6 py-10 sm:py-14 flex flex-col items-center gap-6 sm:gap-8 backdrop-blur-xl"
+            style={{
+              backgroundImage:
+                "linear-gradient(91deg, rgba(72,0,0,0.4) 0%, rgba(36,2,2,0.4) 100%)",
+            }}
           >
-            -{formatUsd(animatedLoss)}
-          </h1>
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(228,0,0,0.25) 0%, rgba(2,3,19,0) 70%)",
+              }}
+            />
+            <div className="relative z-10 w-11 h-11">
+              <img src="/skull.svg" alt="" className="w-full h-full" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            </div>
 
-          <p className="text-[#9898a8] text-lg mt-4 relative z-10">
-            Your assets are{" "}
-            <span className="text-[#ff2d2d] font-semibold">
-              bleeding {formatUsd(dailyLoss, true)}/day
-            </span>{" "}
-            by sitting idle instead of earning yield.
-          </p>
+            <div className="relative z-10 flex flex-col items-center gap-4 sm:gap-6 text-center">
+              <p className="text-[11px] sm:text-[12px] font-medium uppercase tracking-[0.48px] text-white">
+                Estimated Yearly Loss From Idle Assets
+              </p>
+              <p
+                className="text-[#e40000] font-medium leading-none"
+                style={{ fontSize: "clamp(56px, 10vw, 96px)" }}
+              >
+                -{formatUsd(animatedLoss, true)}
+              </p>
+            </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 mt-8 text-sm relative z-10">
-            <StatItem label="Idle Assets" value={formatUsd(report.totalIdleUsd)} />
-            <div className="hidden sm:block w-px h-8 bg-[#2a2a3a]" />
-            <StatItem label="Idle Since" value="~90 days avg" />
-            <div className="hidden sm:block w-px h-8 bg-[#2a2a3a]" />
-            <StatItem label="Best Available APY" value={formatApy(avgApy)} valueClass="text-[#00d4aa]" />
-          </div>
-        </section>
+            <p className="relative z-10 max-w-[760px] text-center text-[16px] sm:text-[20px] leading-snug">
+              Your assets are bleeding{" "}
+              <span className="font-bold text-[#e40000] text-2xl">
+                {formatUsd(animatedLoss, true)}/year
+              </span> {" "}
+              by sitting idle instead of earning yield
+            </p>
 
-        {/* Score & Active Yield */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-          <div className="lg:col-span-1 flex justify-center">
-            <ScoreGauge score={report.deadMoneyScore} />
-          </div>
-          
-          <div className="lg:col-span-2 flex flex-col justify-center gap-6">
-            {activePositions.length > 0 ? (
-              <div className="rounded-3xl bg-[#00d4aa]/5 border border-[#00d4aa]/20 p-8 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#00d4aa]/10 to-transparent opacity-50" />
-                <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Sparkles className="w-5 h-5 text-[#00d4aa]" />
-                    <h2 className="text-xl font-bold text-[#f0f0f5]">Your money is working!</h2>
-                  </div>
-                  <div className="grid grid-cols-2 gap-8">
-                    <div>
-                      <p className="text-xs uppercase tracking-widest text-[#5a5a6a] mb-1">Active Investments</p>
-                      <p className="text-3xl font-black text-[#f0f0f5] font-mono">
-                        {formatUsd(activePositions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-widest text-[#5a5a6a] mb-1">Annual Yield</p>
-                      <p className="text-3xl font-black text-[#00d4aa] font-mono">
-                        +{formatUsd(activePositions.reduce((s, p) => s + (p.stakedTokenAmountUsd * (p.vault?.apy ?? 0.05)), 0))}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-[#9898a8] mt-6 leading-relaxed">
-                    You're already saving thousands by keeping these assets in yield-bearing vaults. 
-                    <span className="text-white font-medium"> Scroll down to manage your positions.</span>
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col justify-center gap-4">
-                <h2 className="text-xl font-semibold text-[#f0f0f5]">
-                  How to rescue your dead money
-                </h2>
-                <p className="text-[#9898a8] text-sm leading-relaxed">
-                  Click <span className="text-[#a78bfa] font-medium">Fix This</span> on any row below to deposit idle assets
-                  into the best available vault via LI.FI Composer.
-                  Your funds are withdrawable anytime — no lockups.
-                </p>
-                <div className="flex gap-3 flex-wrap">
-                  {report.idleAssets.slice(0, 3).map((a) => (
-                    <span
-                      key={`${a.token.chainId}:${a.token.address}`}
-                      className="text-xs px-2.5 py-1 rounded-full bg-[#ff2d2d]/10 border border-[#ff2d2d]/20 text-[#ff2d2d]"
-                    >
-                      {a.token.symbol} bleeding {formatUsd(a.dailyLossUsd, true)}/day
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+            <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 w-full max-w-[640px] text-center">
+              <HeroStat label="Idle Assets" value={formatUsd(report.totalIdleUsd)} border />
+              <HeroStat label="Idle Since" value="90 Days" border />
+              <HeroStat label="Best Available APY" value={formatApy(avgApy)} valueClass="text-[#00a888]" />
+            </div>
+          </section>
+        )}
+
+        {/* Score + Active yield row */}
+        <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] gap-6">
+          <ScoreCard score={report.deadMoneyScore} />
+          <ActiveYieldCard activeUsd={activeUsd} annualYield={annualYield} hasActive={activePositions.length > 0} />
         </div>
 
-        {/* Table — Desktop */}
-        <div className="hidden md:block rounded-2xl border border-[#2a2a3a] overflow-hidden bg-[#111118] mb-6">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#1e1e2c]">
-                <th className="text-left px-6 py-4 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Token</th>
-                <th className="text-right px-4 py-4 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Idle Amount</th>
-                <th className="text-center px-4 py-4 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Chain</th>
-                <th className="text-left px-4 py-4 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Best Vault</th>
-                <th className="text-right px-4 py-4 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Best APY</th>
-                <th className="text-right px-4 py-4 text-xs font-medium uppercase tracking-wider text-[#ff2d2d]">Est. Yearly Loss</th>
-                <th className="px-6 py-4" />
-              </tr>
-            </thead>
-            <tbody>
-              {report.idleAssets.map((asset, i) => {
-                const key = `${asset.token.chainId}:${asset.token.address}`;
-                const isFixed = fixedKeys.has(key);
-                const isTop = i === 0;
-                return (
-                  <tr
-                    key={key}
-                    className={cn(
-                      "border-b border-[#1e1e2c] last:border-0 group transition-colors",
-                      isFixed ? "opacity-50" : "hover:bg-[#22222e]/50",
-                      isTop && !isFixed && "bg-[#ff2d2d]/5"
-                    )}
-                    style={{ animation: `rowEnter 300ms ease-out ${i * 60}ms both` }}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={asset.token.logoUrl}
-                          alt={asset.token.symbol}
-                          className="w-8 h-8 rounded-full"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        />
-                        <div>
-                          <p className="font-semibold text-[#f0f0f5]">{asset.token.symbol}</p>
-                          <p className="text-xs text-[#5a5a6a]">{asset.token.name}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      <p className="font-mono font-medium text-[#f0f0f5]">
-                        {asset.balance.toLocaleString("en-US", { maximumFractionDigits: 4 })}
-                      </p>
-                      <p className="text-xs text-[#5a5a6a]">{formatUsd(asset.usdValue)}</p>
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#22222e] border border-[#2a2a3a] text-[#9898a8]">
-                        {CHAIN_NAMES[asset.token.chainId as keyof typeof CHAIN_NAMES] ?? asset.token.chainId}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      {asset.bestVault ? (
-                        <a
-                          href={getVaultUrl(asset.bestVault)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-[#a78bfa] hover:text-white truncate max-w-[140px] underline underline-offset-2 cursor-pointer inline-flex items-center gap-1"
-                        >
-                          {asset.bestVault.name}
-                          <ExternalLink className="w-3 h-3 opacity-60" />
-                        </a>
-                      ) : (
-                        <span className="text-xs text-[#5a5a6a]">No vault found</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      <span className="font-mono font-bold text-[#00d4aa]">
-                        {asset.bestApy > 0 ? formatApy(asset.bestApy) : "—"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      {isFixed ? (
-                        <span className="text-xs text-[#00d4aa] font-medium">✓ Earning {formatApy(asset.bestApy)}</span>
-                      ) : (
-                        <span className="font-mono font-bold text-[#ff2d2d] financial">
-                          -{formatUsd(asset.yearlyLossUsd)}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {!isFixed && asset.bestVault && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setFixingAsset(asset); }}
-                          className={cn(
-                            "cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-150",
-                            "px-4 py-1.5 rounded-lg text-xs font-semibold text-white",
-                            "bg-[#7c3aed] hover:bg-purple-500",
-                            "shadow-[0_0_32px_rgba(124,58,237,0.25)]"
-                          )}
-                        >
-                          Fix This →
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {/* Footer total */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a3a] bg-[#1a1a24]">
-            <span className="text-sm text-[#5a5a6a]">Total estimated yearly loss</span>
-            <span className="font-mono font-black text-2xl text-[#ff2d2d] financial">
-              -{formatUsd(report.totalYearlyLossUsd)}
-            </span>
+        {/* Idle assets table */}
+        {!isHealthy && (
+        <div className="rounded-[12px] border border-[#373737] bg-[rgba(12,12,13,0.84)] overflow-hidden">
+          {/* Info banner */}
+          <div className="flex gap-3 items-center bg-[rgba(29,72,229,0.14)] px-4 py-4">
+            <Info className="w-5 h-5 text-[#6aa5ff] shrink-0" />
+            <p className="text-[13px] sm:text-[14px] text-[#eaeaea] leading-snug">
+              Hit Fix This on any row to start earning. Audited vaults, no lockups, withdraw anytime.
+            </p>
           </div>
-        </div>
 
-        {/* Cards — Mobile */}
-        <div className="md:hidden space-y-3 mb-6">
+          {/* Desktop Header */}
+          <div className="hidden lg:grid bg-[#1a1a24] px-4 py-5 gap-4 items-center text-[12px] font-medium uppercase tracking-[0.56px] text-[#cacaca]"
+               style={{ gridTemplateColumns: "1.2fr 1fr 1fr 1fr 0.8fr 1fr 1fr" }}>
+            <span>Token</span>
+            <span>Idle Amount</span>
+            <span>Chain</span>
+            <span>Best Vault</span>
+            <span>Best APY</span>
+            <span>Est. Yearly Loss</span>
+            <span className="text-right">Action</span>
+          </div>
+
+          {/* Rows */}
           {report.idleAssets.map((asset, i) => {
             const key = `${asset.token.chainId}:${asset.token.address}`;
             const isFixed = fixedKeys.has(key);
             return (
               <div
                 key={key}
-                className={cn(
-                  "rounded-2xl border border-[#2a2a3a] bg-[#111118] p-4",
-                  isFixed && "opacity-50"
-                )}
+                className="border-t border-[#262626]"
                 style={{ animation: `rowEnter 300ms ease-out ${i * 60}ms both` }}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <img src={asset.token.logoUrl} alt={asset.token.symbol} className="w-7 h-7 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    <span className="font-semibold">{asset.token.symbol}</span>
-                    <span className="text-xs text-[#5a5a6a]">
-                      {CHAIN_NAMES[asset.token.chainId as keyof typeof CHAIN_NAMES]}
+                {/* Desktop row */}
+                <div
+                  className={cn(
+                    "hidden lg:grid px-4 py-4 gap-4 items-center transition-colors",
+                    isFixed ? "opacity-50" : "hover:bg-[#1a1a24]/60"
+                  )}
+                  style={{ gridTemplateColumns: "1.2fr 1fr 1fr 1fr 0.8fr 1fr 1fr" }}
+                >
+                  <div className="flex items-center gap-3">
+                    <TokenLogo src={asset.token.logoUrl} symbol={asset.token.symbol} />
+                    <div className="flex flex-col gap-1">
+                      <p className="text-[16px] font-medium text-[#eaeaea] uppercase tracking-[0.64px]">{asset.token.symbol}</p>
+                      <p className="text-[12px] text-[#e9e9e9] tracking-[0.48px] capitalize">{asset.token.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-[16px] font-medium text-[#eaeaea] tracking-[0.64px]">
+                      {asset.balance.toLocaleString("en-US", { maximumFractionDigits: 4 })}
+                    </p>
+                    <p className="text-[12px] text-[#e9e9e9] tracking-[0.48px]">{formatUsd(asset.usdValue)}</p>
+                  </div>
+                  <div>
+                    <span className="inline-flex bg-[#272727] px-2 py-1.5 text-[13px] font-medium text-[#e9e9e9] tracking-[0.56px] uppercase">
+                      {CHAIN_NAMES[asset.token.chainId as keyof typeof CHAIN_NAMES] ?? asset.token.chainId}
                     </span>
                   </div>
-                  <span className="font-mono font-bold text-[#ff2d2d] financial">
-                    -{formatUsd(asset.yearlyLossUsd)}/yr
-                  </span>
+                  <div>
+                    {asset.bestVault ? (
+                      <a
+                        href={getVaultUrl(asset.bestVault)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[15px] font-medium text-[#0086fb] tracking-[0.64px] uppercase truncate hover:underline"
+                      >
+                        <span className="truncate max-w-[140px]">{asset.bestVault.name}</span>
+                        <ArrowUpRight className="w-4 h-4 shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="text-xs text-[#5a5a6a]">No vault</span>
+                    )}
+                  </div>
+                  <p className="text-[16px] font-medium text-[#01c39e] tracking-[0.64px] uppercase">
+                    {asset.bestApy > 0 ? formatApy(asset.bestApy) : "—"}
+                  </p>
+                  <p className="text-[16px] font-medium text-[#e40000] tracking-[0.64px] uppercase">
+                    -{formatUsd(asset.yearlyLossUsd)}
+                  </p>
+                  <div className="flex justify-end">
+                    {isFixed ? (
+                      <span className="text-[12px] text-[#01c39e] font-bold">✓ Earning {formatApy(asset.bestApy)}</span>
+                    ) : asset.bestVault ? (
+                      <button
+                        onClick={() => setFixingAsset(asset)}
+                        className="bg-[rgba(201,243,82,0.12)] hover:bg-[rgba(201,243,82,0.22)] rounded-[4px] px-5 py-2.5 text-[12px] font-bold text-[#c9f352] transition-colors"
+                      >
+                        Fix This
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-                  <div>
-                    <p className="text-[#5a5a6a]">Idle Amount</p>
-                    <p className="font-mono text-[#f0f0f5]">{formatUsd(asset.usdValue)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#5a5a6a]">Best APY</p>
-                    <p className="font-mono text-[#00d4aa] font-bold">{asset.bestApy > 0 ? formatApy(asset.bestApy) : "—"}</p>
-                  </div>
-                  {asset.bestVault && (
-                    <div className="col-span-2">
-                      <p className="text-[#5a5a6a]">Best Vault</p>
-                      <p className="text-[#f0f0f5] truncate">{asset.bestVault.name}</p>
+
+                {/* Mobile / tablet card */}
+                <div className={cn("lg:hidden p-4 flex flex-col gap-3", isFixed && "opacity-50")}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <TokenLogo src={asset.token.logoUrl} symbol={asset.token.symbol} />
+                      <div>
+                        <p className="text-[16px] font-medium uppercase tracking-[0.64px] text-[#eaeaea]">{asset.token.symbol}</p>
+                        <p className="text-[12px] text-[#e9e9e9] capitalize">{asset.token.name}</p>
+                      </div>
                     </div>
+                    <span className="bg-[#272727] px-2 py-1 text-[12px] font-medium uppercase text-[#e9e9e9] tracking-[0.48px]">
+                      {CHAIN_NAMES[asset.token.chainId as keyof typeof CHAIN_NAMES] ?? asset.token.chainId}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-[13px]">
+                    <Cell label="Idle" value={formatUsd(asset.usdValue)} />
+                    <Cell label="Best APY" value={asset.bestApy > 0 ? formatApy(asset.bestApy) : "—"} valueClass="text-[#01c39e]" />
+                    <Cell label="Yearly Loss" value={`-${formatUsd(asset.yearlyLossUsd)}`} valueClass="text-[#e40000]" />
+                    {asset.bestVault && (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wider text-[#9c9c9c]">Vault</p>
+                        <a href={getVaultUrl(asset.bestVault)} target="_blank" rel="noopener noreferrer" className="text-[13px] text-[#0086fb] underline truncate inline-block max-w-[140px]">
+                          {asset.bestVault.name}
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                  {!isFixed && asset.bestVault && (
+                    <button
+                      onClick={() => setFixingAsset(asset)}
+                      className="w-full bg-[rgba(201,243,82,0.12)] hover:bg-[rgba(201,243,82,0.22)] rounded-[4px] py-2.5 text-[13px] font-bold text-[#c9f352] transition-colors"
+                    >
+                      Fix This
+                    </button>
+                  )}
+                  {isFixed && (
+                    <p className="text-center text-xs text-[#01c39e]">✓ Earning {formatApy(asset.bestApy)} APY</p>
                   )}
                 </div>
-                {!isFixed && asset.bestVault && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setFixingAsset(asset); }}
-                    className="cursor-pointer w-full py-2 rounded-lg text-sm font-semibold text-white bg-[#7c3aed] hover:bg-purple-500 transition-colors active:scale-95"
-                  >
-                    Fix This →
-                  </button>
-                )}
-                {isFixed && (
-                  <p className="text-center text-xs text-[#00d4aa]">✓ Earning {formatApy(asset.bestApy)} APY</p>
-                )}
               </div>
             );
           })}
-        </div>
 
-        {/* Empty state */}
-        {report.idleAssets.length === 0 && (
-          <div className="text-center py-20">
-            <div className="text-5xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold text-[#00d4aa] mb-2">You're clean!</h2>
-            <p className="text-[#9898a8]">No dead money detected. All your assets are working hard.</p>
+          {/* Total */}
+          <div className="flex flex-wrap gap-4 items-center justify-between bg-[#1a1a24] px-4 py-6 border-t border-[#262626]">
+            <p className="text-[16px] sm:text-[20px] text-[#eaeaea] tracking-[0.8px] capitalize">
+              Total Estimated Yearly Loss
+            </p>
+            <p className="text-[20px] sm:text-[24px] font-medium text-[#e40000] tracking-[0.96px] uppercase">
+              -{formatUsd(report.totalYearlyLossUsd)}
+            </p>
           </div>
+        </div>
         )}
 
-        {/* Share card + buttons */}
-        <div className="mt-4 mb-2">
-          <p className="text-xs text-[#5a5a6a] uppercase tracking-widest text-center mb-4">Your Dead Money Card</p>
-          <ShareCard report={report} />
-        </div>
         <ShareButton report={report} />
       </div>
 
-      {/* Fix Modal */}
       {fixingAsset && (
         <FixModal
           asset={fixingAsset}
@@ -379,49 +312,70 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
   );
 }
 
-function StatItem({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+function TokenLogo({ src, symbol }: { src?: string; symbol: string }) {
+  const [err, setErr] = useState(false);
+  if (!src || err) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-[#272727] border border-[#3a3a3a] flex items-center justify-center text-[11px] font-bold text-[#cacaca] shrink-0">
+        {symbol.slice(0, 3)}
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col items-center gap-1">
-      <p className="text-[#5a5a6a] text-xs uppercase tracking-wider">{label}</p>
-      <p className={cn("font-mono font-bold text-lg financial", valueClass ?? "text-[#f0f0f5]")}>{value}</p>
+    <img
+      src={src}
+      alt={symbol}
+      className="w-10 h-10 rounded-full border border-[#2a2a3a] shrink-0 bg-[#0e0e0e]"
+      onError={() => setErr(true)}
+    />
+  );
+}
+
+function HeroStat({ label, value, valueClass, border }: { label: string; value: string; valueClass?: string; border?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center gap-3 px-4 sm:px-6 py-2",
+        border && "sm:border-r sm:border-[rgba(255,255,255,0.24)]"
+      )}
+    >
+      <p className="text-[13px] sm:text-[14px] text-white uppercase tracking-[0.56px] font-medium">{label}</p>
+      <p className={cn("text-[22px] sm:text-[24px] font-medium", valueClass ?? "text-white")}>{value}</p>
     </div>
   );
 }
 
-function ScoreGauge({ score }: { score: number }) {
-  const scoreInfo = getScoreLabel(score);
+function Cell({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-wider text-[#9c9c9c]">{label}</p>
+      <p className={cn("text-[14px] font-medium", valueClass ?? "text-[#eaeaea]")}>{value}</p>
+    </div>
+  );
+}
+
+function ScoreCard({ score }: { score: number }) {
   const [animatedScore, setAnimatedScore] = useState(0);
+  const info = getScoreLabel(score);
 
   useEffect(() => {
     const duration = 1500;
     const startTime = performance.now();
-
-    function spring(t: number) {
-      return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
-    }
-
+    const ease = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
     function tick(now: number) {
-      const progress = Math.min((now - startTime) / duration, 1);
-      setAnimatedScore(Math.round(spring(progress) * score));
-      if (progress < 1) requestAnimationFrame(tick);
+      const p = Math.min((now - startTime) / duration, 1);
+      setAnimatedScore(Math.round(ease(p) * score));
+      if (p < 1) requestAnimationFrame(tick);
     }
-
     requestAnimationFrame(tick);
   }, [score]);
 
-  // Semicircle: total arc = 180deg. Map score 0→100 to 0→180deg
-  const radius = 90;
-  const circumference = Math.PI * radius; // half circle
-  const offset = circumference - (animatedScore / 100) * circumference;
-
   return (
-    <div className="bg-[#111118] border border-[#1e1e2c] rounded-3xl p-8 w-72">
-      <p className="text-center text-xs uppercase tracking-wider text-[#5a5a6a] mb-6">
-        Dead Money Score
-      </p>
+    <div className="rounded-[12px] bg-[#0e0b14] backdrop-blur-xl px-6 py-6 flex flex-col items-center gap-6">
+      <p className="text-[14px] font-medium text-white tracking-[0.56px] uppercase text-center">Dead Money Score</p>
 
-      <div className="relative flex justify-center">
-        <svg viewBox="0 0 220 120" className="w-52">
+      <div className="relative w-full flex justify-center">
+        <svg viewBox="0 0 220 120" className="w-[220px] max-w-full">
           <defs>
             <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#FF2D2D" />
@@ -430,15 +384,7 @@ function ScoreGauge({ score }: { score: number }) {
               <stop offset="100%" stopColor="#00D4AA" />
             </linearGradient>
           </defs>
-          {/* BG arc */}
-          <path
-            d="M 15 110 A 95 95 0 0 1 205 110"
-            stroke="#22222e"
-            strokeWidth="14"
-            fill="none"
-            strokeLinecap="round"
-          />
-          {/* Score arc */}
+          <path d="M 15 110 A 95 95 0 0 1 205 110" stroke="#22222e" strokeWidth="14" fill="none" strokeLinecap="round" />
           <path
             d="M 15 110 A 95 95 0 0 1 205 110"
             stroke="url(#scoreGrad)"
@@ -450,29 +396,72 @@ function ScoreGauge({ score }: { score: number }) {
             style={{ transition: "stroke-dashoffset 0.05s linear" }}
           />
         </svg>
-
-        {/* Score number */}
         <div className="absolute bottom-0 text-center">
-          <span className="font-mono text-5xl font-black" style={{ color: scoreInfo.color }}>
-            {animatedScore}
-          </span>
-          <span className="text-[#5a5a6a] text-sm">/100</span>
+          <span className="text-[28px] font-normal text-white">{animatedScore}</span>
+          <span className="text-[#aeaeae] text-[20px]">/100</span>
         </div>
       </div>
 
-      <div className="text-center mt-5">
-        <span
-          className="inline-block px-4 py-1 rounded-full text-sm font-semibold border"
-          style={{
-            backgroundColor: `${scoreInfo.color}22`,
-            color: scoreInfo.color,
-            borderColor: `${scoreInfo.color}44`,
-          }}
-        >
-          {scoreInfo.label} — High Dead Money
-        </span>
-        <p className="text-xs text-[#5a5a6a] mt-2">Lower score = more dead money. 0 is worst.</p>
+      <span
+        className="inline-flex px-4 py-2 rounded-[4px] text-[11px] font-bold tracking-[0.84px] uppercase text-center"
+        style={{ backgroundColor: `${info.color}26`, color: info.color }}
+      >
+        {info.label} — High Dead Money
+      </span>
+      <p className="text-[12px] text-white text-center">100 = Every dollar working. 0 = Financial Coma</p>
+    </div>
+  );
+}
+
+function ActiveYieldCard({ activeUsd, annualYield, hasActive }: { activeUsd: number; annualYield: number; hasActive: boolean }) {
+  return (
+    <div
+      className="relative rounded-[12px] overflow-hidden px-6 sm:px-8 py-6 flex flex-col gap-6 backdrop-blur-xl"
+      style={{
+        backgroundImage:
+          "linear-gradient(111deg, rgba(2,9,6,0.9) 0%, rgba(6,70,58,0.9) 98%)",
+      }}
+    >
+      <div
+        aria-hidden
+        className="absolute right-0 top-0 w-[280px] h-[280px] pointer-events-none opacity-40"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(0,168,136,0.35) 0%, transparent 70%)",
+        }}
+      />
+      <p className="relative z-10 text-[20px] sm:text-[24px] font-medium text-white">
+        {hasActive ? "Your Money Is Working!" : "How to rescue your dead money"}
+      </p>
+
+      <div className="relative z-10 flex flex-col sm:flex-row gap-6 sm:gap-14">
+        <div className="flex flex-col gap-3 sm:border-r sm:border-[rgba(255,255,255,0.24)] sm:pr-14">
+          <p className="text-[13px] sm:text-[14px] font-medium text-white tracking-[0.56px] uppercase">Active Investments</p>
+          <p className="text-[32px] sm:text-[40px] font-medium text-white leading-none">{formatUsd(activeUsd)}</p>
+        </div>
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] sm:text-[14px] font-medium text-white tracking-[0.56px] uppercase">Annual Yield</p>
+          <p className="text-[32px] sm:text-[40px] font-medium text-[#00a888] leading-none">+{formatUsd(annualYield)}</p>
+        </div>
       </div>
+
+      <p className="relative z-10 text-[14px] sm:text-[16px] text-white max-w-[585px] leading-relaxed">
+        {hasActive
+          ? "You're already saving thousands by keeping these assets in yield-bearing vaults."
+          : "Click Fix This on any row to deposit idle assets into the best available vault. Your funds are withdrawable anytime — no lockups."}
+      </p>
+
+      {hasActive && (
+        <div className="relative z-10">
+          <button
+            onClick={() => { const el = document.getElementById("my-deposits"); el?.scrollIntoView({ behavior: "smooth" }); }}
+            className="inline-flex items-center gap-2 bg-[rgba(3,59,48,0.5)] hover:bg-[rgba(3,59,48,0.75)] rounded-[4px] px-5 py-2.5 text-[12px] font-bold text-[#00a888] transition-colors"
+          >
+            Manage Positions
+            <ArrowUpRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

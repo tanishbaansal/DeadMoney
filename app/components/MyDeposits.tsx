@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { ExternalLink, TrendingUp, Vault, Sparkles } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import type { Position } from "~/lib/earnApi";
 import { getBestApy, getVaultUrl } from "~/lib/earnApi";
 import { calculateYearlyYield, estimateTotalGrowth } from "~/lib/deposits";
 import { formatApy, formatUsd } from "~/lib/deadMoney";
 import { CHAIN_NAMES } from "~/lib/tokens";
 import { WithdrawModal } from "./WithdrawModal";
+import { cn } from "~/lib/utils";
 
 interface MyDepositsProps {
   positions: Position[];
@@ -24,221 +25,218 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn }: MyDeposits
   if (validPositions.length === 0) return null;
 
   return (
-    <section className="mt-10">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-[#00d4aa]/10 border border-[#00d4aa]/20 flex items-center justify-center">
-            <Vault className="w-4 h-4 text-[#00d4aa]" />
+    <section
+      id="my-deposits"
+      className="w-full text-white"
+      style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+    >
+      <div className="space-y-6">
+        {/* Header card */}
+        <div className="rounded-[12px] bg-[rgba(14,11,20,0.67)] backdrop-blur-xl px-6 py-10 flex flex-col items-center gap-9">
+          <div className="flex flex-col items-center gap-3 text-center text-[#eaeaea]">
+            <h2 className="text-[28px] sm:text-[32px] font-medium">My Deposits</h2>
+            <p className="text-[16px] sm:text-[20px]">On-chain yield-bearing assets</p>
           </div>
-          <div>
-            <h2 className="font-semibold text-[#f0f0f5] text-lg leading-none">My Deposits</h2>
-            <p className="text-xs text-[#5a5a6a] mt-0.5">On-chain yield-bearing assets</p>
+
+          <div className="inline-flex items-center gap-2 bg-[rgba(16,185,129,0.13)] rounded-[4px] px-4 py-2">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00a888] opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00a888]" />
+            </span>
+            <p className="text-[12px] font-bold text-[#00a888] tracking-[0.84px] uppercase">{validPositions.length} active</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-0 w-full max-w-[780px] text-center">
+            <SummaryStat label="Total Deposit" value={formatUsd(totalDeposited)} border />
+            <SummaryStat label="Saving / Year" value={`+${formatUsd(yearlySaved)}`} border />
+            <SummaryStat label="Est. Current Growth" value={`+${formatUsd(currentGrowth)}`} valueClass="text-[#00a888]" />
           </div>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#00d4aa]/10 border border-[#00d4aa]/20 text-[#00d4aa] text-xs">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00d4aa] opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00d4aa]"></span>
-          </span>
-          {validPositions.length} active
-        </div>
-      </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-        <div className="rounded-2xl bg-[#111118] border border-[#1e1e2c] p-4 text-center group hover:border-[#00d4aa]/30 transition-all cursor-default">
-          <p className="text-[10px] uppercase tracking-wider text-[#5a5a6a] mb-1 group-hover:text-[#00d4aa] transition-colors font-semibold">Total Deposited</p>
-          <p className="font-mono font-bold text-[#f0f0f5] text-xl">{formatUsd(totalDeposited)}</p>
-        </div>
-        <div className="rounded-2xl bg-[#00d4aa]/5 border border-[#00d4aa]/20 p-4 text-center group hover:bg-[#00d4aa]/10 transition-all cursor-default relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#00d4aa]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <p className="text-[10px] uppercase tracking-wider text-[#00d4aa] mb-1 font-semibold">Est. Current Growth</p>
-          <p className="font-mono font-bold text-[#00d4aa] text-xl">+{formatUsd(currentGrowth)}</p>
-        </div>
-        <div className="rounded-2xl bg-[#111118] border border-[#1e1e2c] p-4 text-center group hover:border-[#a78bfa]/30 transition-all cursor-default">
-          <p className="text-[10px] uppercase tracking-wider text-[#5a5a6a] mb-1 group-hover:text-[#a78bfa] transition-colors font-semibold">Saving / Year</p>
-          <p className="font-mono font-bold text-[#a78bfa] text-xl">+{formatUsd(yearlySaved)}</p>
-        </div>
-      </div>
+        {/* Table */}
+        <div className="rounded-[12px] border border-[#373737] bg-[rgba(12,12,13,0.84)] overflow-hidden">
+          {/* Desktop header */}
+          <div
+            className="hidden lg:grid bg-[#1a1a24] px-4 py-5 gap-4 items-center text-[12px] font-medium uppercase tracking-[0.56px] text-[#cacaca]"
+            style={{ gridTemplateColumns: "1.4fr 1fr 0.8fr 1.2fr 0.8fr 1fr 1.4fr" }}
+          >
+            <span>Asset</span>
+            <span>Balance</span>
+            <span>Chain</span>
+            <span>Vault</span>
+            <span>Current APY</span>
+            <span>Est. Yearly Yield</span>
+            <span className="text-center">Action</span>
+          </div>
 
-      {/* Deposit rows */}
-      <div className="rounded-2xl border border-[#2a2a3a] overflow-hidden bg-[#111118]">
-        {/* Desktop table */}
-        <table className="w-full hidden md:table">
-          <thead>
-            <tr className="border-b border-[#1e1e2c]">
-              <th className="text-left px-6 py-3 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Asset</th>
-              <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Balance</th>
-              <th className="text-center px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Chain</th>
-              <th className="text-left px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Vault</th>
-              <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Current APY</th>
-              <th className="text-right px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#00d4aa]">Est. Yearly Yield</th>
-              <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-[#5a5a6a]">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {validPositions.map((p, i) => {
-              const vaultUrl = getVaultUrl(p.vault);
-              const apy = getBestApy(p.vault);
-              const yearlyYield = p.stakedTokenAmountUsd * apy;
+          {validPositions.map((p, i) => {
+            const apy = getBestApy(p.vault);
+            const vaultUrl = getVaultUrl(p.vault);
+            const yearlyYield = (p.stakedTokenAmountUsd ?? 0) * apy;
+            const symbol = p.vault.name.includes("USDC")
+              ? "USDC"
+              : p.vault.name.includes("WETH")
+                ? "WETH"
+                : (p.vault.asset?.slice(0, 6) ?? "TOKEN");
+            const logo = (p.vault as any).protocolLogoUrl || p.vault.logoUrl;
 
-              return (
-                <tr
-                  key={p.id}
-                  className="border-b border-[#1e1e2c] last:border-0 hover:bg-[#22222e]/50 transition-colors"
-                  style={{ animation: `rowEnter 300ms ease-out ${i * 50}ms both` }}
+            return (
+              <div
+                key={p.id}
+                className="border-t border-[#262626]"
+                style={{ animation: `rowEnter 300ms ease-out ${i * 50}ms both` }}
+              >
+                {/* Desktop row */}
+                <div
+                  className="hidden lg:grid px-4 py-4 gap-4 items-center hover:bg-[#1a1a24]/60 transition-colors"
+                  style={{ gridTemplateColumns: "1.4fr 1fr 0.8fr 1.2fr 0.8fr 1fr 1.4fr" }}
                 >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      {p.vault.logoUrl || (p.vault as any).protocolLogoUrl ? (
-                         <img 
-                           src={(p.vault as any).protocolLogoUrl || p.vault.logoUrl} 
-                           alt={p.vault.name} 
-                           className="w-8 h-8 rounded-full border border-[#2a2a3a]" 
-                         />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-purple-600/20 flex items-center justify-center text-[10px] font-bold">
-                          {p.vault.protocol?.toString()?.slice(0, 2) || "De"}
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-semibold text-[#f0f0f5]">
-                          {p.vault.name.includes("USDC") ? "USDC" : p.vault.name.includes("WETH") ? "WETH" : p.vault.asset.slice(0, 6) + "..."}
-                        </p>
-                        <p className="text-xs text-[#5a5a6a]">Yield Position</p>
+                  <div className="flex items-center gap-2">
+                    {logo ? (
+                      <img src={logo} alt={p.vault.name} className="w-[42px] h-[42px] rounded-full border border-[#2a2a3a]" />
+                    ) : (
+                      <div className="w-[42px] h-[42px] rounded-full bg-[#272727] flex items-center justify-center text-[10px] font-bold">
+                        {p.vault.protocol?.toString()?.slice(0, 2) || "DM"}
                       </div>
+                    )}
+                    <div>
+                      <p className="text-[16px] font-medium text-white uppercase tracking-[0.64px]">{symbol}</p>
+                      <p className="text-[12px] text-[#b7b7b7] capitalize tracking-[0.48px]">USD Coin</p>
                     </div>
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    <p className="font-mono text-[#f0f0f5]">
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <p className="text-[16px] font-medium text-white uppercase tracking-[0.64px]">
                       {parseFloat(p.stakedTokenAmount).toFixed(4)}
                     </p>
-                    <p className="text-xs text-[#5a5a6a]">{formatUsd(p.stakedTokenAmountUsd)}</p>
+                    <p className="text-[12px] text-[#b7b7b7] tracking-[0.48px]">{formatUsd(p.stakedTokenAmountUsd ?? 0)}</p>
                     {p.txLink && (
-                      <a 
-                        href={p.txLink} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-[10px] text-[#00d4aa] hover:underline mt-1 block"
+                      <a
+                        href={p.txLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[12px] text-[#c9f352] font-bold mt-0.5 hover:underline"
                       >
-                        View Tx ↗
+                        View Tx <ArrowUpRight className="w-3 h-3" />
                       </a>
                     )}
-                  </td>
-                  <td className="px-4 py-4 text-center">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#22222e] border border-[#2a2a3a] text-[#9898a8]">
+                  </div>
+
+                  <div>
+                    <span className="inline-flex bg-[#272727] px-2 py-1.5 text-[13px] font-medium text-[#cecece] uppercase tracking-[0.56px]">
                       {CHAIN_NAMES[p.chainId as keyof typeof CHAIN_NAMES] ?? p.chainId}
                     </span>
-                  </td>
-                  <td className="px-4 py-4">
+                  </div>
+
+                  <a
+                    href={vaultUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[15px] font-medium text-[#0086fb] uppercase tracking-[0.64px] underline hover:text-white truncate"
+                  >
+                    <span className="truncate max-w-[140px]">{p.vault.name}</span>
+                    <ArrowUpRight className="w-4 h-4 shrink-0" />
+                  </a>
+
+                  <p className="text-[16px] font-medium text-[#14c75c] uppercase tracking-[0.64px]">{formatApy(apy)}</p>
+
+                  <p className="text-[16px] font-medium text-[#14c75c] uppercase tracking-[0.64px]">+{formatUsd(yearlyYield)}</p>
+
+                  <div className="flex items-center justify-end gap-2.5">
                     <a
                       href={vaultUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-[#a78bfa] hover:text-white underline underline-offset-2 truncate max-w-[160px]"
+                      className="rounded-[4px] px-5 py-2.5 text-[12px] font-bold text-[#c9f352] hover:bg-[rgba(201,243,82,0.08)] transition-colors"
                     >
-                      {p.vault.name}
-                      <ExternalLink className="w-3 h-3 opacity-60 flex-shrink-0" />
+                      Manage
                     </a>
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className="font-mono font-bold text-[#00d4aa]">{formatApy(apy)}</span>
-                  </td>
-                  <td className="px-4 py-4 text-right">
-                    <span className="font-mono font-bold text-[#00d4aa]">
-                      +{formatUsd(yearlyYield)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex flex-col gap-1.5">
-                      <a
-                        href={vaultUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-[#7c3aed] hover:text-[#a78bfa] font-semibold flex items-center gap-1"
-                      >
-                        Management ↗
-                      </a>
-                      <button
-                        onClick={() => setSelectedWithdrawal(p)}
-                        className="text-xs text-[#00d4aa] hover:text-[#00b492] font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        Withdraw
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    <button
+                      onClick={() => setSelectedWithdrawal(p)}
+                      className="bg-[rgba(201,243,82,0.08)] hover:bg-[rgba(201,243,82,0.18)] rounded-[4px] px-5 py-2.5 text-[12px] font-bold text-[#c9f352] transition-colors"
+                    >
+                      Withdraw
+                    </button>
+                  </div>
+                </div>
 
-        {/* Mobile cards */}
-        <div className="md:hidden divide-y divide-[#1e1e2c]">
-          {validPositions.map((p) => {
-             const apy = getBestApy(p.vault);
-             const vaultUrl = getVaultUrl(p.vault);
-             return (
-              <div key={p.id} className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-[#f0f0f5]">{p.vault.name}</span>
+                {/* Mobile / tablet */}
+                <div className="lg:hidden p-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    {logo ? (
+                      <img src={logo} alt={p.vault.name} className="w-10 h-10 rounded-full border border-[#2a2a3a]" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-[#272727]" />
+                    )}
+                    <div className="flex-1">
+                      <p className="text-[15px] font-medium uppercase tracking-[0.64px]">{symbol}</p>
+                      <p className="text-[12px] text-[#b7b7b7]">{formatUsd(p.stakedTokenAmountUsd ?? 0)}</p>
+                    </div>
+                    <span className="bg-[#272727] px-2 py-1 text-[12px] uppercase text-[#cecece] tracking-[0.48px]">
+                      {CHAIN_NAMES[p.chainId as keyof typeof CHAIN_NAMES] ?? p.chainId}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <p className="font-mono font-bold text-[#00d4aa] text-sm">+{formatApy(apy)}</p>
+                  <div className="grid grid-cols-2 gap-3 text-[13px]">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wider text-[#9c9c9c]">APY</p>
+                      <p className="text-[14px] font-medium text-[#14c75c]">{formatApy(apy)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wider text-[#9c9c9c]">Yearly Yield</p>
+                      <p className="text-[14px] font-medium text-[#14c75c]">+{formatUsd(yearlyYield)}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-                  <div>
-                    <p className="text-[#5a5a6a]">Balance</p>
-                    <p className="font-mono text-[#f0f0f5]">{formatUsd(p.stakedTokenAmountUsd)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#5a5a6a]">Chain</p>
-                    <p className="text-[#f0f0f5]">{CHAIN_NAMES[p.chainId as keyof typeof CHAIN_NAMES] ?? p.chainId}</p>
-                  </div>
-                </div>
+                  <a
+                    href={vaultUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[12px] text-[#0086fb] font-medium uppercase truncate inline-flex items-center gap-1"
+                  >
+                    {p.vault.name} <ArrowUpRight className="w-3 h-3" />
+                  </a>
                   <div className="flex gap-2">
                     <a
                       href={vaultUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 text-center py-2 rounded-lg text-xs font-semibold text-[#7c3aed] border border-[#7c3aed]/30 hover:bg-[#7c3aed]/10 transition-colors"
+                      className="flex-1 text-center py-2 rounded-[4px] text-[13px] font-bold text-[#c9f352] border border-[#c9f352]/30 hover:bg-[rgba(201,243,82,0.08)]"
                     >
-                      Manage ↗
+                      Manage
                     </a>
                     <button
                       onClick={() => setSelectedWithdrawal(p)}
-                      className="flex-1 text-center py-2 rounded-lg text-xs font-semibold text-[#00d4aa] border border-[#00d4aa]/30 hover:bg-[#00d4aa]/10 transition-colors cursor-pointer"
+                      className="flex-1 text-center py-2 rounded-[4px] text-[13px] font-bold text-[#c9f352] bg-[rgba(201,243,82,0.08)] hover:bg-[rgba(201,243,82,0.18)]"
                     >
                       Withdraw
                     </button>
                   </div>
+                </div>
               </div>
-             );
+            );
           })}
-        </div>
 
-        {/* Totals footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a3a] bg-[#1a1a24]">
-          <div className="flex items-center gap-2 text-sm text-[#5a5a6a]">
-            <TrendingUp className="w-4 h-4 text-[#00d4aa]" />
-            <span>Projected yearly yield</span>
+          {/* Footer */}
+          <div className="flex flex-wrap gap-3 items-center justify-between bg-[#1a1a24] px-4 py-6 border-t border-[#262626]">
+            <div className="flex items-center gap-3">
+              <ArrowUpRight className="w-6 h-6 text-[#00a353]" />
+              <p className="text-[16px] sm:text-[20px] text-[#eaeaea] tracking-[0.8px] capitalize">
+                Projected Yearly Yield
+              </p>
+            </div>
+            <p className="text-[20px] sm:text-[24px] font-medium text-[#00a353] tracking-[0.96px] uppercase">
+              +{formatUsd(yearlySaved)}
+            </p>
           </div>
-          <span className="font-mono font-black text-xl text-[#00d4aa]">+{formatUsd(yearlySaved)}</span>
         </div>
+
+        <p className="text-[14px] text-[#cfcfcf] text-center">
+          Your Money Is Working! All Positions are live on-chain
+        </p>
       </div>
 
-      {/* Encouragement badge */}
-      <div className="mt-4 flex items-center justify-center gap-2 text-xs text-[#5a5a6a]">
-        <Sparkles className="w-3.5 h-3.5 text-[#a78bfa]" />
-        <span>Your money is working. All positions are live on-chain.</span>
-        <Sparkles className="w-3.5 h-3.5 text-[#a78bfa]" />
-      </div>
       {selectedWithdrawal && (
-        <WithdrawModal 
-          position={selectedWithdrawal} 
+        <WithdrawModal
+          position={selectedWithdrawal}
           onClose={() => setSelectedWithdrawal(null)}
           onWithdrawn={() => {
             setSelectedWithdrawal(null);
@@ -247,5 +245,19 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn }: MyDeposits
         />
       )}
     </section>
+  );
+}
+
+function SummaryStat({ label, value, valueClass, border }: { label: string; value: string; valueClass?: string; border?: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center gap-3 px-6 py-2",
+        border && "sm:border-r sm:border-[rgba(255,255,255,0.24)]"
+      )}
+    >
+      <p className="text-[13px] sm:text-[14px] text-[#9c9c9c] uppercase tracking-[0.56px] font-medium">{label}</p>
+      <p className={cn("text-[26px] sm:text-[32px] font-medium leading-none", valueClass ?? "text-white")}>{value}</p>
+    </div>
   );
 }
