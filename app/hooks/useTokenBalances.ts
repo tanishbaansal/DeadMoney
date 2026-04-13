@@ -32,18 +32,15 @@ export function useTokenBalances(address: string | null) {
     let cancelled = false;
 
     async function fetchBalances() {
-      console.log("[useTokenBalances] starting fetch for address:", address);
       setStatus("loading");
       setError(null);
 
       try {
         const coingeckoIds = [...new Set([...TOKENS, ...NATIVE_ETH_TOKENS].map((t) => t.coingeckoId))];
-        console.log("[useTokenBalances] fetching prices for", coingeckoIds.length, "ids");
         
         let prices: Record<string, number>;
         try {
           prices = await getPrices(coingeckoIds);
-          console.log("[useTokenBalances] prices fetched successfully");
         } catch (pe) {
           console.error("[useTokenBalances] price fetch failed:", pe);
           if (!cancelled) {
@@ -54,14 +51,12 @@ export function useTokenBalances(address: string | null) {
         }
 
         const chainIds = [1, 8453, 42161, 10, 137, 324] as SupportedChainId[];
-        console.log("[useTokenBalances] scanning", chainIds.length, "chains");
 
         const chainPromises = chainIds.map(async (chainId) => {
           const chainResults: TokenBalance[] = [];
           try {
             const client = getPublicClient(chainId);
             const chainTokens = TOKENS.filter((t) => t.chainId === chainId);
-            console.log(`[useTokenBalances] chain${chainId}: scanning ${chainTokens.length} tokens`);
 
             // 1. Native balance
             try {
@@ -71,9 +66,6 @@ export function useTokenBalances(address: string | null) {
               const nativePrice = prices[nativeToken.coingeckoId] ?? (chainId === 137 ? 1 : 2000);
               const nativeUsd = nativeBalance * nativePrice;
               
-              if (nativeBalance > 0) {
-                console.log(`[useTokenBalances] chain${chainId}: found ${nativeToken.symbol} balance: ${nativeBalance}`);
-              }
 
               if (nativeUsd >= 0.1 || (chainId === 137 && nativeBalance > 0)) {
                  chainResults.push({ token: nativeToken, rawBalance: nativeRaw, balance: nativeBalance, usdValue: nativeUsd });
@@ -92,7 +84,6 @@ export function useTokenBalances(address: string | null) {
                   args: [address as `0x${string}`],
                 }));
                 const rawResults = await client.multicall({ contracts: calls });
-                console.log(`[useTokenBalances] chain${chainId}: multicall returned ${rawResults.length} results`);
 
                 for (let i = 0; i < chainTokens.length; i++) {
                   const token = chainTokens[i];
@@ -105,8 +96,6 @@ export function useTokenBalances(address: string | null) {
                   const price = prices[token.coingeckoId] ?? (token.isStable ? 1 : 0);
                   const usdValue = balance * price;
                   
-                  console.log(`[useTokenBalances] chain${chainId}: found ${token.symbol} balance: ${balance} ($${usdValue.toFixed(2)})`);
-
                   if (usdValue >= 0.1 || chainId === 137) {
                     chainResults.push({ token, rawBalance, balance, usdValue });
                   }
@@ -125,7 +114,6 @@ export function useTokenBalances(address: string | null) {
         const results = allChainResults.flat();
 
         if (!cancelled) {
-          console.log("[useTokenBalances] fetch complete. Found", results.length, "significant balances.");
           setBalances(results);
           setStatus("done");
         }
@@ -140,7 +128,6 @@ export function useTokenBalances(address: string | null) {
 
     fetchBalances();
     return () => { 
-      console.log("[useTokenBalances] effect cancelled");
       cancelled = true; 
     };
   }, [address, refreshKey]);

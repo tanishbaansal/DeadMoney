@@ -14,10 +14,6 @@ import { getPublicClient } from "~/lib/viem";
 import { cn } from "~/lib/utils";
 import { CHAIN_NAMES } from "~/lib/tokens";
 
-const DEBUG = true;
-const log = (...args: unknown[]) => {
-  if (DEBUG) console.log("[WithdrawModal]", ...args);
-};
 
 type ModalState = "loading" | "ready" | "submitting" | "success" | "error";
 
@@ -273,14 +269,6 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         args: [userAddress as `0x${string}`],
       })) as bigint;
 
-      log("preflight", {
-        chainId,
-        userAddress,
-        vault: vault.address,
-        underlying: vault.asset,
-        liveBalance: liveBal.toString(),
-      });
-
       if (liveBal === 0n) {
         throw new Error("Live balance is zero — nothing to withdraw.");
       }
@@ -318,7 +306,6 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
 
       for (const candidateAmount of amountCandidates) {
         try {
-          log("re-quoting with live amount...", candidateAmount.toString());
           const fresh = await getComposerQuote({
             fromChain: chainId,
             toChain: chainId,
@@ -331,16 +318,6 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
           });
           const nextTx = fresh.transactionRequest;
           const freshSpender = fresh.estimate.approvalAddress as `0x${string}` | undefined;
-          log("fresh quote", {
-            tool: fresh.tool,
-            to: nextTx.to,
-            value: nextTx.value,
-            gasLimit: nextTx.gasLimit,
-            fromAmount: fresh.action.fromAmount,
-            toAmountMin: fresh.estimate.toAmountMin,
-            approvalAddress: freshSpender,
-            dataLen: nextTx.data?.length,
-          });
 
           // Verify allowance for this exact candidate route/spender.
           if (!isNative && freshSpender) {
@@ -351,15 +328,9 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
               args: [userAddress as `0x${string}`, freshSpender],
             })) as bigint;
 
-            log("fresh allowance check", {
-              spender: freshSpender,
-              liveAllowance: liveAllowance.toString(),
-              safeAmount: candidateAmount.toString(),
-            });
 
             const inlineApprovalAmount = candidateAmount + approvalBuffer;
             if (liveAllowance < inlineApprovalAmount) {
-              log("approving fresh spender with finite buffered allowance inline...");
               const approveClient = await getWalletClientForChain(chainId);
               const approveTxHash = await approveClient.writeContract({
                 chain: CHAIN_MAP[chainId],
@@ -368,7 +339,6 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
                 functionName: "approve",
                 args: [freshSpender, inlineApprovalAmount],
               });
-              log("inline approve tx", approveTxHash);
               await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
             }
           }
@@ -380,17 +350,12 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
             data: nextTx.data as `0x${string}`,
             value: BigInt(nextTx.value ?? "0"),
           });
-          log("composer simulation OK", { candidateAmount: candidateAmount.toString() });
           tx = nextTx;
           simulationError = null;
           break;
         } catch (simErr) {
           const msg = simErr instanceof Error ? simErr.message : String(simErr);
           simulationError = msg;
-          log("composer simulation reverted", {
-            candidateAmount: candidateAmount.toString(),
-            error: msg,
-          });
         }
       }
 
@@ -402,7 +367,6 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
 
       const walletClient = await getWalletClientForChain(chainId);
       const gas = await resolveGasLimit(chainId, tx);
-      log("sending tx", { gas: gas.toString() });
 
       const hash = await walletClient.sendTransaction({
         chain: CHAIN_MAP[chainId],
@@ -411,7 +375,6 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         value: BigInt(tx.value ?? "0"),
         gas,
       });
-      log("tx sent", hash);
 
       setModalState("success");
       confetti({

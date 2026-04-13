@@ -67,7 +67,6 @@ function findVault(tx: any, vaultMap: Record<string, Vault>): Vault | undefined 
     if (isNonVaultTool && !isKnownVault) return undefined;
     
     if (isKnownVault) {
-      console.log(`[findVault] Detected potential vault token: ${symbol} (${name}) on chain ${chainId}`);
       const toolName = tx.tool || (isAave ? "Aave" : isYearn ? "Yearn" : isBeefy ? "Beefy" : "DeFi");
       const protocolName = isAave ? "Aave" : isYearn ? "Yearn" : isBeefy ? "Beefy" : "DeFi";
       const tokenName = tx.receiving.token.symbol || tx.receiving.token.name || "Active Vault";
@@ -111,7 +110,6 @@ export function synthesizePositionsFromHistory(
   currentPositions: Position[],
   vaultMap: Record<string, Vault>
 ): Position[] {
-  console.log(`[synthesize] Starting synthesis for ${history.length} txs`);
   const merged = [...currentPositions];
   const existingVaultIds = new Set(currentPositions.map(p => p.vault?.id).filter(Boolean));
 
@@ -133,7 +131,6 @@ export function synthesizePositionsFromHistory(
       return false;
     }
 
-    console.log(`[synthesize] Found potential deposit: ${vault.name} (${tx.transactionId})`);
     existingVaultIds.add(vault.id);
     return true;
   });
@@ -160,7 +157,6 @@ export function synthesizePositionsFromHistory(
 
       merged.push(synthesized);
       existingVaultIds.add(vault.id);
-      console.log(`[synthesize] Successfully synthesized position: ${vault.name} (${amountHuman} units)`);
     } catch (e) {
       console.error(`[synthesize] Failed to synthesize tx ${tx.transactionId}:`, e);
     }

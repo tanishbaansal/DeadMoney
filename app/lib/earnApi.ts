@@ -127,7 +127,6 @@ export async function getVaults(chainId?: number, assetAddress?: string): Promis
   }
 
   const url = EARN_PATH(`/v1/earn/vaults?${params}`);
-  console.log(`[earnApi] getVaults request: ${url}`);
   
   try {
     const res = await fetch(url, {
@@ -144,7 +143,6 @@ export async function getVaults(chainId?: number, assetAddress?: string): Promis
     
     // Filter for transactional vaults. APY can be 0 (discovery is better than none)
     const filtered = vaults.filter((v) => v.isTransactional);
-    console.log(`[earnApi] getVaults: ${vaults.length} total -> ${filtered.length} transactional`);
     
     return filtered;
   } catch (err) {

@@ -21,49 +21,18 @@ export const CHAIN_NAMES: Record<SupportedChainId, string> = {
   324: "zkSync Era",
 };
 
-// Alchemy RPC URLs — populated at runtime from env var
+// Alchemy RPC URLs — now proxied through our secure backend API route
 export function getChainRpcUrl(chainId: SupportedChainId): string {
-  const alchemyKey = typeof window !== "undefined"
-    ? (import.meta.env.VITE_ALCHEMY_API_KEY as string | undefined)
-    : undefined;
-
-  const isDev = typeof window !== "undefined" && import.meta.env.DEV;
-
-  if (alchemyKey) {
-    if (isDev) {
-      // In dev, route through Vite proxy to avoid CORS
-      const proxyPaths: Record<SupportedChainId, string> = {
-        1: `/rpc/eth/v2/${alchemyKey}`,
-        8453: `/rpc/base/v2/${alchemyKey}`,
-        42161: `/rpc/arb/v2/${alchemyKey}`,
-        10: `/rpc/opt/v2/${alchemyKey}`,
-        137: `/rpc/polygon/v2/${alchemyKey}`,
-        324: `https://mainnet.era.zksync.io`, // zkSync doesn't use Alchemy v2 proxy same way
-      };
-      return proxyPaths[chainId];
-    }
-    // In prod, call Alchemy directly
-    const alchemyUrls: Record<SupportedChainId, string> = {
-      1: `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-      8453: `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-      42161: `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-      10: `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-      137: `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-      324: `https://mainnet.era.zksync.io`,
-    };
-    return alchemyUrls[chainId];
-  }
-
-  // Fallback public RPCs (no CORS issues)
-  const fallbacks: Record<SupportedChainId, string> = {
-    1: "https://ethereum.publicnode.com",
-    8453: "https://mainnet.base.org",
-    42161: "https://arb1.arbitrum.io/rpc",
-    10: "https://mainnet.optimism.io",
-    137: "https://polygon-rpc.com",
-    324: "https://mainnet.era.zksync.io",
+  const proxyPaths: Record<SupportedChainId, string> = {
+    1: `/api/rpc/1`,
+    8453: `/api/rpc/8453`,
+    42161: `/api/rpc/42161`,
+    10: `/api/rpc/10`,
+    137: `/api/rpc/137`,
+    324: `https://mainnet.era.zksync.io`, // zkSync uses public RPC
   };
-  return fallbacks[chainId];
+
+  return proxyPaths[chainId] || "https://ethereum.publicnode.com";
 }
 
 // Keep for backward compat

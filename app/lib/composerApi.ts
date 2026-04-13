@@ -57,27 +57,10 @@ export interface ComposerQuote {
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 export async function getComposerQuote(params: ComposerQuoteParams): Promise<ComposerQuote> {
-  const apiKey = import.meta.env.VITE_COMPOSER_API_KEY as string ?? "";
-
-  const searchParams = new URLSearchParams({
-    fromChain: String(params.fromChain),
-    toChain: String(params.toChain),
-    fromToken: params.fromToken,
-    toToken: params.toToken,
-    fromAddress: params.fromAddress,
-    toAddress: params.toAddress,
-    fromAmount: params.fromAmount,
-  });
-
-  if (params.slippage) searchParams.set("slippage", String(params.slippage));
-  if (params.maxPriceImpact) searchParams.set("maxPriceImpact", String(params.maxPriceImpact));
-
-  const res = await fetch(COMPOSER_PATH(`/v1/quote?${searchParams}`), {
-    method: "GET",
-    headers: {
-      "x-lifi-api-key": apiKey,
-      "Content-Type": "application/json",
-    },
+  const res = await fetch("/api/quote", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
     signal: AbortSignal.timeout(15000),
   });
 

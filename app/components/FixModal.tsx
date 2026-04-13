@@ -105,19 +105,6 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
   }, [isNative, allowance, amountNeeded]);
 
   useEffect(() => {
-    if (quoteParams) {
-      console.log("[FixModal] quoteParams:", quoteParams);
-    }
-  }, [JSON.stringify(quoteParams)]);
-
-  useEffect(() => {
-    console.log("[FixModal] quote status:", quoteStatus, "error:", quoteError);
-    if (quote) {
-      console.log("[FixModal] quote fetched successfully:", quote.id, "tool:", quote.tool, "approvalAddress:", quote.estimate?.approvalAddress);
-    }
-  }, [quote, quoteStatus, quoteError]);
-
-  useEffect(() => {
     if (!authenticated) return;
     if (quoteStatus === "loading") setModalState("loading");
     else if (quoteStatus === "done") setModalState("ready");

@@ -26,7 +26,6 @@ export async function getPrices(coingeckoIds: string[]): Promise<Record<string, 
   try {
     // CoinGecko allows multiple IDs comma-separated
     const idsString = toFetch.join(",");
-    console.log("[prices] Fetching CoinGecko for:", idsString);
     const res = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${idsString}&vs_currencies=usd`,
       { signal: AbortSignal.timeout(8000) }
@@ -38,7 +37,6 @@ export async function getPrices(coingeckoIds: string[]): Promise<Record<string, 
     }
 
     const data = (await res.json()) as Record<string, { usd: number }>;
-    console.log("[prices] CoinGecko data received for", Object.keys(data).length, "tokens");
 
     for (const [id, val] of Object.entries(data)) {
       if (val && typeof val.usd === "number") {
@@ -58,7 +56,6 @@ export async function getPrices(coingeckoIds: string[]): Promise<Record<string, 
           "matic-network": 0.5,
         };
         results[id] = fallbacks[id] ?? 0;
-        console.log(`[prices] No data for ${id}, using fallback: ${results[id]}`);
       }
     }
   } catch (e) {
