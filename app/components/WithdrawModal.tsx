@@ -466,6 +466,26 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
   const gasEstimate = quote ? getGasEstimateUsd(quote) : "~$2.00";
   const chainName = CHAIN_NAMES[position.chainId as keyof typeof CHAIN_NAMES] ?? String(position.chainId);
 
+  const displayAmount = (() => {
+    const decimals = vault.decimals || 18;
+    const live = onchainBalance as bigint | undefined;
+    const cached = parseFloat(position.stakedTokenAmount);
+    if (live && live > 0n) {
+      const divisor = 10 ** decimals;
+      return (Number(live) / divisor).toFixed(4);
+    }
+    return cached.toFixed(4);
+  })();
+
+  const shortAddr = userAddress
+    ? `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`
+    : `${vault.asset.slice(0, 6)}...${vault.asset.slice(-4)}`;
+
+  const protocolName =
+    typeof (vault as any).protocol === "string"
+      ? (vault as any).protocol
+      : (vault as any).protocol?.name ?? "Aave";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
@@ -477,91 +497,107 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
 
       <div
         className={cn(
-          "relative z-10 w-full bg-[#1a1a24] border border-[#2a2a3a]",
-          "sm:max-w-lg sm:rounded-3xl rounded-t-3xl",
-          "shadow-[0_24px_64px_rgba(0,0,0,0.5)] overflow-hidden",
+          "relative z-10 w-full sm:max-w-[520px]",
+          "rounded-t-[20px] sm:rounded-[20px] overflow-hidden",
+          "border border-[#464646]",
+          "shadow-[0px_2px_12px_0px_rgba(73,73,73,0.25)]",
+          "backdrop-blur-[37.65px]",
+          "bg-[linear-gradient(180deg,rgba(14,11,20,0.92)_0%,rgba(31,9,69,0.78)_45%,rgba(14,11,20,0.92)_100%)]",
         )}
       >
-        <div className="bg-gradient-to-r from-red-950/30 to-[#1a1a24] px-6 py-5 border-b border-[#2a2a3a] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-red-600/20 flex items-center justify-center">
-              <ArrowLeftRight className="w-6 h-6 text-red-400" />
+        <div className="flex flex-col gap-5 px-6 pt-6 pb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-[rgba(255,71,74,0.15)] shrink-0 flex items-center justify-center">
+                <ArrowLeftRight className="w-5 h-5 text-[#FF474A]" strokeWidth={1.75} />
+              </div>
+              <div className="flex flex-col gap-1 justify-center min-w-0">
+                <h2 className="font-medium text-white text-[20px] leading-none tracking-[0.6px] capitalize truncate">
+                  {modalState === "success" ? "Withdrawal Sent" : "Withdrawal Route"}
+                </h2>
+                <p className="text-[#cacaca] text-[12px] tracking-[0.4px] capitalize truncate">
+                  Existing {vault.name}
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-semibold text-[#f0f0f5] text-lg">Withdraw Asset</h2>
-              <p className="text-xs text-[#9898a8]">Exiting {vault.name}</p>
-            </div>
+            <button
+              onClick={onClose}
+              className="cursor-pointer shrink-0 w-7 h-7 flex items-center justify-center text-[#cacaca] hover:text-white transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" strokeWidth={2} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="cursor-pointer w-8 h-8 rounded-full bg-[#22222e] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors"
-          >
-            <X className="w-4 h-4 text-[#9898a8]" />
-          </button>
-        </div>
 
-        <div className="p-6 space-y-4">
           {modalState === "success" ? (
-            <div className="text-center py-8">
-              <CheckCircle2 className="w-16 h-16 text-[#00d4aa] mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-[#f0f0f5] mb-2">Withdrawal Initiated! 💸</h3>
-              <p className="text-[#9898a8] text-sm">
-                Your funds are being returned to your wallet. High-five for securing your gains!
+            <div className="rounded-[10px] bg-[rgba(14,11,20,0.67)] backdrop-blur-[37.65px] p-6 text-center">
+              <CheckCircle2 className="w-12 h-12 text-[#00a888] mx-auto mb-3" />
+              <p className="text-white text-[16px] font-medium mb-1.5">Withdrawal Initiated</p>
+              <p className="text-[#cacaca] text-[12px]">
+                Your funds are heading back to your wallet.
               </p>
             </div>
           ) : (
-            <>
-              <div className="rounded-2xl bg-[#22222e] border border-[#2a2a3a] p-4 text-center">
-                <p className="text-xs text-[#5a5a6a] uppercase tracking-wider mb-2">You are withdrawing</p>
-                <p className="font-mono text-3xl font-bold text-[#f0f0f5]">
-                  {(() => {
-                    const decimals = vault.decimals || 18;
-                    const live = onchainBalance as bigint | undefined;
-                    const cached = parseFloat(position.stakedTokenAmount);
-                    if (live && live > 0n) {
-                      const divisor = 10 ** decimals;
-                      return (Number(live) / divisor).toFixed(4);
-                    }
-                    return cached.toFixed(4);
-                  })()}
+            <div className="rounded-[10px] bg-[rgba(14,11,20,0.67)] backdrop-blur-[37.65px] p-4 flex justify-center">
+              <div className="flex flex-col gap-4 items-center justify-center text-center w-full max-w-[460px]">
+                <p className="text-white text-[12px] font-medium tracking-[0.48px] uppercase">
+                  You are withdrawing
                 </p>
-                <p className="text-sm text-[#9898a8] mt-1">{formatUsd(position.stakedTokenAmountUsd)}</p>
+                {modalState === "loading" ? (
+                  <Loader2 className="w-10 h-10 text-white animate-spin" />
+                ) : (
+                  <p className="text-white text-[40px] sm:text-[48px] font-medium leading-none whitespace-nowrap">
+                    {displayAmount}
+                  </p>
+                )}
+                <p className="text-[#cacaca] text-[16px]">
+                  {formatUsd(position.stakedTokenAmountUsd)}
+                </p>
               </div>
+            </div>
+          )}
 
-              <div className="flex items-center justify-between text-xs text-[#5a5a6a] px-1">
-                <span>Network: {chainName}</span>
-                <span>Gas estimate: {gasEstimate}</span>
-              </div>
-
-              <div className="rounded-xl bg-purple-950/20 border border-purple-500/20 p-3">
-                <p className="text-xs text-purple-300 font-bold mb-1.5">Withdrawal Route</p>
-                <div className="flex items-center gap-2 text-xs text-[#9898a8]">
-                  <span className="text-[#00d4aa] font-mono font-bold">{vault.name}</span>
-                  <span>→</span>
-                  <span className="text-[#f0f0f5]">LI.FI Composer</span>
-                  <span>→</span>
-                  <span className="font-mono">
-                    {vault.asset.slice(0, 6)}...{vault.asset.slice(-4)}
-                  </span>
+          {modalState !== "success" && (
+            <div
+              className="rounded-[10px] backdrop-blur-[37.65px] p-4 flex items-center justify-between gap-3"
+              style={{
+                backgroundImage:
+                  "linear-gradient(98.47deg, rgba(14, 11, 20, 0.67) 1%, rgba(31, 9, 69, 0.67) 45%, rgba(14, 11, 20, 0.67) 100%)",
+              }}
+            >
+              <div className="flex flex-col gap-2 flex-1 min-w-0">
+                <p className="text-[#cacaca] text-[12px] font-medium tracking-[0.4px] uppercase">
+                  Withdrawal Route
+                </p>
+                <div className="flex flex-wrap items-center gap-2 text-[12px] tracking-[0.4px] capitalize">
+                  <span className="text-[#00a888] font-mono">{vault.name}</span>
+                  <span className="text-[#cacaca]">→</span>
+                  <span className="text-white">{protocolName}</span>
+                  <span className="text-[#cacaca]">→</span>
+                  <span className="text-[#cacaca] font-mono">{shortAddr}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-[#9898a8] pt-1">
+                  <span className="uppercase tracking-wider">Network: {chainName}</span>
+                  <span>Gas: {gasEstimate}</span>
                 </div>
               </div>
+            </div>
+          )}
 
-              {(txError || (modalState === "error" && quoteError)) && (
-                <div className="flex items-start gap-2 p-3 rounded-xl bg-red-950/30 border border-red-500/20 text-xs text-red-400">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  <span>{txError ?? quoteError}</span>
-                </div>
-              )}
-            </>
+          {(txError || (modalState === "error" && quoteError)) && (
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-950/30 border border-red-500/20 text-xs text-red-400">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{txError ?? quoteError}</span>
+            </div>
           )}
         </div>
 
         {modalState !== "success" && (
-          <div className="px-6 pb-6 pt-0">
+          <div className="px-6 pb-6">
             {!authenticated ? (
               <button
                 onClick={login}
-                className="cursor-pointer w-full h-14 rounded-2xl font-bold text-base text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 shadow-[0_0_32px_rgba(220,38,38,0.25)] transition-all active:scale-[0.98]"
+                className="cursor-pointer w-full rounded-[10px] bg-[#c9f352] hover:bg-[#d4ff5e] px-4 py-4 text-black text-[16px] font-medium text-center transition-colors active:scale-[0.99]"
               >
                 Connect Wallet
               </button>
@@ -569,7 +605,7 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
               <button
                 onClick={handleApprove}
                 disabled={modalState === "loading" || isApproving || isWaitingForApproval || !quote}
-                className="cursor-pointer w-full h-14 rounded-2xl font-bold text-base text-white bg-gradient-to-r from-[#00b492] to-[#00d4aa] hover:from-[#00d4aa] shadow-[0_0_32px_rgba(0,212,170,0.25)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="cursor-pointer w-full rounded-[10px] bg-[#c9f352] hover:bg-[#d4ff5e] px-4 py-4 text-black text-[16px] font-medium text-center transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isApproving ? (
                   <>
@@ -582,14 +618,14 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
                     Waiting for network...
                   </>
                 ) : (
-                  <>Continue to Withdrawal</>
+                  "Continue to Withdrawal"
                 )}
               </button>
             ) : (
               <button
                 onClick={handleWithdraw}
                 disabled={modalState === "loading" || modalState === "submitting" || !quote}
-                className="cursor-pointer w-full h-14 rounded-2xl font-bold text-base text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 shadow-[0_0_32px_rgba(220,38,38,0.25)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="cursor-pointer w-full rounded-[10px] bg-[#c9f352] hover:bg-[#d4ff5e] px-4 py-4 text-black text-[16px] font-medium text-center transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {modalState === "submitting" ? (
                   <>
@@ -602,7 +638,7 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
                     Getting best quote...
                   </>
                 ) : (
-                  `Execute Withdrawal`
+                  "Continue to Withdrawal"
                 )}
               </button>
             )}

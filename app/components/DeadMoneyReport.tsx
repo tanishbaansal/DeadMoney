@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowUpRight, Info } from "lucide-react";
+import { ArrowUpRight, Info, Sparkles } from "lucide-react";
 import type { DeadMoneyReport as Report, IdleAsset } from "~/lib/deadMoney";
 import { formatUsd, formatApy, getScoreLabel } from "~/lib/deadMoney";
 import { getVaultUrl } from "~/lib/earnApi";
 import { CHAIN_NAMES } from "~/lib/tokens";
-import { ShareButton } from "./ShareButton";
 import { FixModal } from "./FixModal";
 import { cn } from "~/lib/utils";
 
@@ -112,7 +111,7 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
               }}
             />
             <div className="relative z-10 w-11 h-11">
-              <img src="/skull.svg" alt="" className="w-full h-full" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              <img src="/logo-icon.svg" alt="" className="w-full h-full" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             </div>
 
             <div className="relative z-10 flex flex-col items-center gap-4 sm:gap-6 text-center">
@@ -151,9 +150,9 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
 
         {/* Idle assets table */}
         {!isHealthy && (
-        <div className="rounded-[12px] border border-[#373737] bg-[rgba(12,12,13,0.84)] overflow-hidden">
+        <div className="rounded-[12px] border border-[#373737] bg-[rgba(14,11,20,0.67)] overflow-hidden">
           {/* Info banner */}
-          <div className="flex gap-3 items-center bg-[rgba(29,72,229,0.14)] px-4 py-4">
+          <div className="flex gap-3 items-center bg-[rgba(29,72,229,0.14)] px-4 py-4 border-b border-[#1d48e533]">
             <Info className="w-5 h-5 text-[#6aa5ff] shrink-0" />
             <p className="text-[13px] sm:text-[14px] text-[#eaeaea] leading-snug">
               Hit Fix This on any row to start earning. Audited vaults, no lockups, withdraw anytime.
@@ -161,7 +160,7 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
           </div>
 
           {/* Desktop Header */}
-          <div className="hidden lg:grid bg-[#1a1a24] px-4 py-5 gap-4 items-center text-[12px] font-medium uppercase tracking-[0.56px] text-[#cacaca]"
+          <div className="hidden lg:grid bg-[#1a1a24] border-b border-[#464646] px-4 py-5 gap-4 items-center text-[12px] font-medium uppercase tracking-[0.56px] text-[#cacaca]"
                style={{ gridTemplateColumns: "1.2fr 1fr 1fr 1fr 0.8fr 1fr 1fr" }}>
             <span>Token</span>
             <span>Idle Amount</span>
@@ -235,7 +234,7 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
                     ) : asset.bestVault ? (
                       <button
                         onClick={() => setFixingAsset(asset)}
-                        className="bg-[rgba(201,243,82,0.12)] hover:bg-[rgba(201,243,82,0.22)] rounded-[4px] px-5 py-2.5 text-[12px] font-bold text-[#c9f352] transition-colors"
+                        className="bg-[rgba(201,243,82,0.09)] hover:bg-[rgba(201,243,82,0.18)] rounded-[4px] px-5 py-2.5 text-[12px] font-bold text-[#c9f352] transition-colors"
                       >
                         Fix This
                       </button>
@@ -273,7 +272,7 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
                   {!isFixed && asset.bestVault && (
                     <button
                       onClick={() => setFixingAsset(asset)}
-                      className="w-full bg-[rgba(201,243,82,0.12)] hover:bg-[rgba(201,243,82,0.22)] rounded-[4px] py-2.5 text-[13px] font-bold text-[#c9f352] transition-colors"
+                      className="w-full bg-[rgba(201,243,82,0.09)] hover:bg-[rgba(201,243,82,0.18)] rounded-[4px] py-2.5 text-[13px] font-bold text-[#c9f352] transition-colors"
                     >
                       Fix This
                     </button>
@@ -297,8 +296,6 @@ export function DeadMoneyReport({ report, onFixed, activePositions = [] }: DeadM
           </div>
         </div>
         )}
-
-        <ShareButton report={report} />
       </div>
 
       {fixingAsset && (
@@ -429,6 +426,11 @@ function ActiveYieldCard({ activeUsd, annualYield, hasActive }: { activeUsd: num
           background:
             "radial-gradient(circle, rgba(0,168,136,0.35) 0%, transparent 70%)",
         }}
+      />
+      <Sparkles
+        aria-hidden
+        className="absolute right-4 top-4 w-40 h-40 sm:w-56 sm:h-56 text-[#00a888] opacity-15 pointer-events-none"
+        strokeWidth={1}
       />
       <p className="relative z-10 text-[20px] sm:text-[24px] font-medium text-white">
         {hasActive ? "Your Money Is Working!" : "How to rescue your dead money"}

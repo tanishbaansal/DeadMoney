@@ -10,6 +10,7 @@ import type { DeadMoneyReport as Report, IdleAsset } from "~/lib/deadMoney";
 import { ScanProgress } from "~/components/ScanProgress";
 import { DeadMoneyReport } from "~/components/DeadMoneyReport";
 import { MyDeposits } from "~/components/MyDeposits";
+import { ShareReportCard } from "~/components/ShareReportCard";
 import { PageBackground } from "~/components/PageBackground";
 
 // Lightweight server loader — just passes the raw param through.
@@ -106,12 +107,16 @@ export default function ScanPage({ loaderData }: Route.ComponentProps) {
           onFixed={handleFixed}
           activePositions={positions}
         />
+        <div className="mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 pb-12">
+          <ShareReportCard report={report} />
+        </div>
         {positions.length > 0 && resolvedAddress && (
-          <div className="mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 -mt-6 pb-12">
+          <div className="mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 pb-12">
             <MyDeposits
               positions={positions}
               walletAddress={resolvedAddress}
               onWithdrawn={() => handleFixed(null as any)}
+              variant="scan"
             />
           </div>
         )}

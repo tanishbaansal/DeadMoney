@@ -1,7 +1,24 @@
 @import "tailwindcss";
 
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueUltraLight.otf') format('opentype'); font-weight: 100; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueUltraLightItalic.otf') format('opentype'); font-weight: 100; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueThin.otf') format('opentype'); font-weight: 200; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueThinItalic.otf') format('opentype'); font-weight: 200; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueLight.otf') format('opentype'); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueLightItalic.otf') format('opentype'); font-weight: 300; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueRoman.otf') format('opentype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueItalic.ttf') format('truetype'); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueMedium.otf') format('opentype'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueMediumItalic.otf') format('opentype'); font-weight: 500; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueBold.otf') format('opentype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueBoldItalic.otf') format('opentype'); font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueHeavy.otf') format('opentype'); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueHeavyItalic.otf') format('opentype'); font-weight: 800; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueBlack.otf') format('opentype'); font-weight: 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Helvetica Neue'; src: url('/font/HelveticaNeueBlackItalic.otf') format('opentype'); font-weight: 900; font-style: italic; font-display: swap; }
+
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
+  --font-sans: "Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 

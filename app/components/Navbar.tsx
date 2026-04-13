@@ -22,14 +22,9 @@ export function Navbar() {
   const isConnected = ready && authenticated && !!walletAddress;
 
   return (
-    <nav className="sticky top-0 z-40 flex w-full items-center justify-between border-b border-[#696969] bg-[#020313]/80 backdrop-blur-md px-4 sm:px-6 py-3">
+    <nav className="sticky top-0 z-40 flex w-full items-center justify-between border-b border-[#373737] bg-[#020313]/80 backdrop-blur-md px-4 sm:px-6 py-3">
       <Link to="/" className="flex items-center gap-3 p-[10px]">
-        <img src="/logo-icon.svg" alt="" className="h-6 w-6" />
-        <img
-          src="/logo-text.svg"
-          alt="Dead Money"
-          className="hidden sm:block h-[20px] w-[117.72px]"
-        />
+        <img src="/logo-text.svg" alt="" className="h-full w-44" />
       </Link>
       <div className="flex items-center gap-2 sm:gap-3">
         {isConnected && (
@@ -44,8 +39,8 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => navigate("/deposits")}
-              className="hidden sm:inline-flex items-center border border-[#6700de]/60 bg-[#6700de]/20 px-3 py-2 text-[13px] font-bold text-white transition-colors hover:bg-[#6700de]/40"
-            >
+              className="hidden sm:inline-flex items-center border border-[#c9f352]/40 bg-[#c9f352]/10 px-3 py-2 text-[13px] font-bold text-[#c9f352] transition-colors hover:bg-[#c9f352]/20"
+           >
               My Investments
             </button>
           </>

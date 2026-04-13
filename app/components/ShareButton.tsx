@@ -59,8 +59,8 @@ export function ShareButton({ report }: ShareButtonProps) {
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
-          "cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white",
-          "bg-[#1DA1F2] hover:bg-[#1a8fd1]",
+          "cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold text-white",
+          "bg-[#c9f352] hover:bg-[#c9f352]/80",
           "transition-all duration-200 active:scale-95"
         )}
       >

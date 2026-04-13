@@ -1,26 +1,29 @@
 import { useMemo, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Sparkles } from "lucide-react";
 import type { Position } from "~/lib/earnApi";
 import { getBestApy, getVaultUrl } from "~/lib/earnApi";
 import { calculateYearlyYield, estimateTotalGrowth } from "~/lib/deposits";
 import { formatApy, formatUsd } from "~/lib/deadMoney";
 import { CHAIN_NAMES } from "~/lib/tokens";
 import { WithdrawModal } from "./WithdrawModal";
-import { cn } from "~/lib/utils";
 
 interface MyDepositsProps {
   positions: Position[];
   walletAddress: string;
   onWithdrawn?: () => void;
+  variant?: "scan" | "deposits";
 }
 
-export function MyDeposits({ positions, walletAddress, onWithdrawn }: MyDepositsProps) {
+export function MyDeposits({ positions, walletAddress, onWithdrawn, variant = "scan" }: MyDepositsProps) {
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<Position | null>(null);
   const yearlySaved = useMemo(() => calculateYearlyYield(positions), [positions]);
-  const currentGrowth = useMemo(() => estimateTotalGrowth(positions), [positions]);
-  const totalDeposited = useMemo(() => positions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0), [positions]);
 
   const validPositions = useMemo(() => positions.filter(p => !!p.vault), [positions]);
+  const totalDeposited = useMemo(
+    () => validPositions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0),
+    [validPositions]
+  );
+  const currentGrowth = useMemo(() => estimateTotalGrowth(validPositions), [validPositions]);
 
   if (validPositions.length === 0) return null;
 
@@ -30,31 +33,76 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn }: MyDeposits
       className="w-full text-white"
       style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
     >
-      <div className="space-y-6">
-        {/* Header card */}
-        <div className="rounded-[12px] bg-[rgba(14,11,20,0.67)] backdrop-blur-xl px-6 py-10 flex flex-col items-center gap-9">
-          <div className="flex flex-col items-center gap-3 text-center text-[#eaeaea]">
-            <h2 className="text-[28px] sm:text-[32px] font-medium">My Deposits</h2>
-            <p className="text-[16px] sm:text-[20px]">On-chain yield-bearing assets</p>
-          </div>
+      <div className="flex flex-col items-center gap-6">
+        {variant === "scan" ? (
+          /* Centered hero — matches scan-page Figma */
+          <div className="w-full rounded-[12px] bg-[rgba(14,11,20,0.67)] backdrop-blur-[37.65px] px-6 py-10 flex flex-col items-center justify-center gap-9">
+            <div className="flex flex-col items-center gap-3 text-center text-[#faf6f6]">
+              <h2 className="text-[26px] sm:text-[32px] font-medium leading-none">
+                My Deposits
+              </h2>
+              <p className="text-[16px] sm:text-[20px]">
+                On-chain yield-bearing assets
+              </p>
+            </div>
 
-          <div className="inline-flex items-center gap-2 bg-[rgba(16,185,129,0.13)] rounded-[4px] px-4 py-2">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00a888] opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00a888]" />
-            </span>
-            <p className="text-[12px] font-bold text-[#00a888] tracking-[0.84px] uppercase">{validPositions.length} active</p>
-          </div>
+            <div className="inline-flex items-center gap-2.5 bg-[rgba(16,185,129,0.13)] rounded-[4px] px-4 py-2">
+              <span className="relative flex h-[9px] w-[9px]">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00a888] opacity-75" />
+                <span className="relative inline-flex h-[9px] w-[9px] rounded-full bg-[#00a888]" />
+              </span>
+              <p className="text-[12px] font-bold text-[#00a888] tracking-[0.84px] uppercase whitespace-nowrap">
+                {validPositions.length} active
+              </p>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-0 w-full max-w-[780px] text-center">
-            <SummaryStat label="Total Deposit" value={formatUsd(totalDeposited)} border />
-            <SummaryStat label="Saving / Year" value={`+${formatUsd(yearlySaved)}`} border />
-            <SummaryStat label="Est. Current Growth" value={`+${formatUsd(currentGrowth)}`} valueClass="text-[#00a888]" />
+            <div className="flex flex-wrap items-stretch justify-center text-center">
+              <DepositStat label="Total Deposit" value={formatUsd(totalDeposited)} border />
+              <DepositStat label="Saving / Year" value={`+${formatUsd(yearlySaved)}`} border />
+              <DepositStat
+                label="Est. Current Growth"
+                value={`+${formatUsd(currentGrowth)}`}
+                valueClass="text-[#00a888]"
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Left-aligned header strip — matches deposits-page Figma */
+          <div className="w-full rounded-[12px] bg-[rgba(14,11,20,0.67)] backdrop-blur-[37.65px] p-6 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <div
+                className="rounded-full p-2.5 shrink-0"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(97.56deg, rgba(2, 9, 6, 0.9) 0%, rgba(0, 41, 33, 0.396) 98.22%)",
+                }}
+              >
+                <Sparkles className="w-8 h-8 text-[#00a888]" strokeWidth={1.75} />
+              </div>
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <h2 className="text-[24px] sm:text-[32px] font-medium text-[#faf6f6] leading-none truncate">
+                  My Deposits
+                </h2>
+                <p className="text-[#cacaca] text-[13px] sm:text-[14px]">
+                  On-chain yield-bearing assets
+                </p>
+              </div>
+            </div>
+
+            <div className="inline-flex items-center gap-2 bg-[rgba(16,185,129,0.13)] rounded-[4px] px-4 py-2 shrink-0">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00a888] opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00a888]" />
+              </span>
+              <p className="text-[12px] font-bold text-[#00a888] tracking-[0.84px] uppercase whitespace-nowrap">
+                {validPositions.length} active
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Table */}
-        <div className="rounded-[12px] border border-[#373737] bg-[rgba(12,12,13,0.84)] overflow-hidden">
+        <div className="w-full rounded-[12px] border border-[#373737] bg-[rgba(14,11,20,0.67)] overflow-hidden">
           {/* Desktop header */}
           <div
             className="hidden lg:grid bg-[#1a1a24] px-4 py-5 gap-4 items-center text-[12px] font-medium uppercase tracking-[0.56px] text-[#cacaca]"
@@ -216,14 +264,12 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn }: MyDeposits
           })}
 
           {/* Footer */}
-          <div className="flex flex-wrap gap-3 items-center justify-between bg-[#1a1a24] px-4 py-6 border-t border-[#262626]">
-            <div className="flex items-center gap-3">
-              <ArrowUpRight className="w-6 h-6 text-[#00a353]" />
-              <p className="text-[16px] sm:text-[20px] text-[#eaeaea] tracking-[0.8px] capitalize">
-                Projected Yearly Yield
-              </p>
-            </div>
-            <p className="text-[20px] sm:text-[24px] font-medium text-[#00a353] tracking-[0.96px] uppercase">
+          <div className="flex flex-wrap gap-3 items-center bg-[#1a1a24] px-4 py-6 border-t border-[#373737]">
+            <ArrowUpRight className="w-6 h-6 text-[#14c75c] shrink-0" />
+            <p className="flex-1 min-w-0 text-[16px] sm:text-[20px] text-[#faf6f6] tracking-[0.8px] capitalize">
+              Projected Yearly Yield
+            </p>
+            <p className="text-[20px] sm:text-[24px] font-medium text-[#14c75c] tracking-[0.96px] uppercase">
               +{formatUsd(yearlySaved)}
             </p>
           </div>
@@ -248,16 +294,31 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn }: MyDeposits
   );
 }
 
-function SummaryStat({ label, value, valueClass, border }: { label: string; value: string; valueClass?: string; border?: boolean }) {
+function DepositStat({
+  label,
+  value,
+  valueClass,
+  border,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+  border?: boolean;
+}) {
   return (
     <div
-      className={cn(
-        "flex flex-col items-center justify-center gap-3 px-6 py-2",
-        border && "sm:border-r sm:border-[rgba(255,255,255,0.24)]"
-      )}
+      className={
+        "flex flex-col items-center justify-center gap-3 sm:gap-4 px-6 min-w-[160px] sm:min-w-[186px] " +
+        (border ? "sm:border-r sm:border-white" : "")
+      }
     >
-      <p className="text-[13px] sm:text-[14px] text-[#9c9c9c] uppercase tracking-[0.56px] font-medium">{label}</p>
-      <p className={cn("text-[26px] sm:text-[32px] font-medium leading-none", valueClass ?? "text-white")}>{value}</p>
+      <p className="text-[13px] sm:text-[14px] text-[#cacaca] uppercase tracking-[0.56px] font-medium">
+        {label}
+      </p>
+      <p className={"text-[26px] sm:text-[32px] font-medium leading-none " + (valueClass ?? "text-white")}>
+        {value}
+      </p>
     </div>
   );
 }
+

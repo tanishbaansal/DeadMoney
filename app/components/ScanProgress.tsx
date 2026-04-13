@@ -1,8 +1,13 @@
+import { PageBackground } from "./PageBackground";
+
 interface ScanProgressProps {
   currentStep: number; // 0–3
+  title?: string;
+  subtitle?: string;
+  steps?: Array<{ label: string }>;
 }
 
-const STEPS = [
+const DEFAULT_STEPS = [
   { label: "Scanning Token Balances" },
   { label: "Checking Active Positions" },
   { label: "Sourcing Best Vaults" },
@@ -17,40 +22,23 @@ function getState(i: number, currentStep: number): RowState {
   return "waiting";
 }
 
-export function ScanProgress({ currentStep }: ScanProgressProps) {
+export function ScanProgress({
+  currentStep,
+  title = "Hunting For Dead Money",
+  subtitle = "Digging through your wallets. This may hurt.",
+  steps = DEFAULT_STEPS,
+}: ScanProgressProps) {
   return (
     <div
-      className="relative min-h-screen w-full overflow-hidden bg-[#020313] text-white"
+      className="relative w-full overflow-hidden bg-[#020313] text-white"
       style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
     >
-      {/* Background nebula — blurred, dimmed, matches home */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 select-none"
-        style={{
-          backgroundImage: "url('/hero-bg.png')",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center 30%",
-          backgroundSize: "140% auto",
-          filter: "blur(40px) brightness(0.45) saturate(1.1)",
-          transform: "scale(1.05)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 70% 55% at 50% 58%, rgba(2,3,19,0) 0%, rgba(2,3,19,0.55) 60%, rgba(2,3,19,0.92) 100%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[rgba(30,30,30,0.19)]"
-      />
+      
+            <PageBackground />
+      
 
       {/* Main content */}
-      <main className="relative z-10 flex min-h-screen items-center justify-center px-6 py-20">
+      <main className="relative z-10 flex items-center justify-center px-6 py-20">
         <div
           className="flex w-full max-w-[1149px] flex-col items-center justify-center"
           style={{ gap: "56px" }}
@@ -63,7 +51,7 @@ export function ScanProgress({ currentStep }: ScanProgressProps) {
             {/* Skull */}
             <div className="relative" style={{ width: "144px", height: "144px" }}>
               <img
-                src="/skull.svg"
+                src="/logo-icon.svg"
                 alt=""
                 className="h-full w-full"
                 style={{
@@ -83,7 +71,7 @@ export function ScanProgress({ currentStep }: ScanProgressProps) {
                 lineHeight: 1.1,
               }}
             >
-              Hunting For Dead Money
+              {title}
             </h1>
 
             <p
@@ -94,7 +82,7 @@ export function ScanProgress({ currentStep }: ScanProgressProps) {
                 lineHeight: 1.4,
               }}
             >
-              Digging through your wallets. This may hurt.
+              {subtitle}
             </p>
           </div>
 
@@ -103,7 +91,7 @@ export function ScanProgress({ currentStep }: ScanProgressProps) {
             className="flex w-full flex-col items-center"
             style={{ gap: "12px", maxWidth: "620px" }}
           >
-            {STEPS.map((step, i) => (
+            {steps.map((step, i) => (
               <StepRow
                 key={step.label}
                 label={step.label}

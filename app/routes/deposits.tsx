@@ -4,10 +4,11 @@ import { usePortfolio } from "~/hooks/usePortfolio";
 import { MyDeposits } from "~/components/MyDeposits";
 import { useNavigate } from "react-router";
 import { useEffect } from "react";
-import { Loader2, TrendingUp, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { formatUsd } from "~/lib/deadMoney";
-import { calculateYearlyYield } from "~/lib/deposits";
+import { calculateYearlyYield, estimateTotalGrowth } from "~/lib/deposits";
 import { PageBackground } from "~/components/PageBackground";
+import { ScanProgress } from "~/components/ScanProgress";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -36,10 +37,17 @@ export default function DepositsPage() {
 
   if (!ready || status === "loading") {
     return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-10 h-10 text-[#7c3aed] animate-spin" />
-        <p className="text-[#9898a8] font-medium">Scanning your on-chain positions...</p>
-      </div>
+      <ScanProgress
+        currentStep={0}
+        title="Loading Your Investments"
+        subtitle="Syncing your on-chain deposits. This may take a moment."
+        steps={[
+          { label: "Scanning Token Balances" },
+          { label: "Checking Active Positions" },
+          { label: "Fetching Yield Opportunities" },
+          { label: "Preparing Investments View" },
+        ]}
+      />
     );
   }
 
@@ -48,37 +56,62 @@ export default function DepositsPage() {
   }
 
   const yearlySaved = calculateYearlyYield(positions);
+  const currentGrowth = estimateTotalGrowth(positions);
+  const totalDeposited = positions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#020313] text-[#f0f0f5]" style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
       <PageBackground />
-      <div className="relative z-10 mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 py-10">
-        
-        {/* Hero Section */}
-        <section className="text-center py-12 mb-8 relative">
-           <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_50%,rgba(0,212,170,0.08),transparent)] pointer-events-none" />
-           
-           <div className="flex items-center justify-center gap-2 mb-4">
-             <TrendingUp className="w-5 h-5 text-[#00d4aa]" />
-             <span className="text-xs font-bold tracking-widest uppercase text-[#00d4aa]">Current Yield Status</span>
-           </div>
-
-           <h1 className="text-5xl sm:text-6x font-black tracking-tighter text-[#f0f0f5] mb-4">
-             Your money is <span className="text-[#00d4aa] text-glow-green">working.</span>
-           </h1>
-
-           <p className="text-[#9898a8] text-lg max-w-xl mx-auto">
-             You are saving <span className="text-[#00d4aa] font-bold">{formatUsd(yearlySaved)}</span> per year 
-             by keeping your assets in yield-bearing vaults.
-           </p>
-        </section>
-
+      <div className="relative z-10 mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 py-10 space-y-6">
         {positions.length > 0 ? (
-          <MyDeposits 
-            positions={positions} 
-            walletAddress={walletAddress} 
-            onWithdrawn={refetch}
-          />
+          <>
+            {/* Gradient "Your Money Is Working!" hero */}
+            <section
+              className="rounded-[12px] backdrop-blur-[37.65px] px-6 sm:px-8 py-10 flex flex-col items-center gap-10"
+              style={{
+                backgroundImage:
+                  "linear-gradient(112.07deg, rgba(2, 9, 6, 0.9) 0%, rgba(0, 41, 33, 0.396) 98.22%)",
+              }}
+            >
+              <div className="flex flex-col items-center gap-6 text-center">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#00a888]" strokeWidth={2} />
+                  <span className="text-[12px] font-medium tracking-[0.48px] uppercase text-[#00a888]">
+                    Current Yield Status
+                  </span>
+                </div>
+
+                <h1 className="text-[40px] sm:text-[56px] lg:text-[64px] leading-[1.05] font-medium text-white">
+                  Your Money Is <span className="text-[#00a888]">Working!</span>
+                </h1>
+
+                <p className="text-white text-[16px] sm:text-[20px] max-w-[772px]">
+                  You are saving{" "}
+                  <span className="text-[#00a888] font-bold text-[22px] sm:text-[32px] align-baseline">
+                    {formatUsd(yearlySaved)}
+                  </span>{" "}
+                  per year by keeping your assets in yield-bearing vaults.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-stretch justify-center gap-y-4 text-center">
+                <DHeroStat label="Total Deposit" value={formatUsd(totalDeposited)} border />
+                <DHeroStat label="Saving / Year" value={`+${formatUsd(yearlySaved)}`} border />
+                <DHeroStat
+                  label="Est. Current Growth"
+                  value={`+${formatUsd(currentGrowth)}`}
+                  valueClass="text-[#00a888]"
+                />
+              </div>
+            </section>
+
+            <MyDeposits
+              positions={positions}
+              walletAddress={walletAddress}
+              onWithdrawn={refetch}
+              variant="deposits"
+            />
+          </>
         ) : (
           <div className="text-center py-20 rounded-3xl border border-dashed border-[#2a2a3a] bg-[#111118]">
             <Sparkles className="w-12 h-12 text-[#5a5a6a] mx-auto mb-4" />
@@ -95,6 +128,34 @@ export default function DepositsPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function DHeroStat({
+  label,
+  value,
+  valueClass,
+  border,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+  border?: boolean;
+}) {
+  return (
+    <div
+      className={
+        "flex flex-col items-center justify-center gap-3 px-6 min-w-[160px] " +
+        (border ? "sm:border-r sm:border-white" : "")
+      }
+    >
+      <p className="text-[13px] sm:text-[14px] text-[#cacaca] uppercase tracking-[0.56px] font-medium">
+        {label}
+      </p>
+      <p className={"text-[26px] sm:text-[32px] font-medium leading-none " + (valueClass ?? "text-white")}>
+        {value}
+      </p>
     </div>
   );
 }

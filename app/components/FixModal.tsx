@@ -165,7 +165,7 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
       });
       setModalState("success");
       confetti({ particleCount: 60, spread: 80, colors: ["#7C3AED", "#00D4AA", "#F0F0F5"], origin: { x: 0.5, y: 0.5 } });
-      setTimeout(onFixed, 2500);
+      setTimeout(onFixed, 3500);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Transaction failed";
       setTxError(msg.toLowerCase().includes("user rejected") ? "Transaction cancelled." : msg.slice(0, 120));
@@ -179,6 +179,13 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
   const chainName = CHAIN_NAMES[asset.token.chainId as keyof typeof CHAIN_NAMES] ?? String(asset.token.chainId);
   const vaultUrl = vault ? getVaultUrl(vault) : "https://app.li.fi/earn";
 
+  const baseApy = vault?.analytics?.apy?.base;
+  const rewardApy = vault?.analytics?.apy?.reward;
+  const protocolName =
+    typeof vault?.protocol === "string"
+      ? vault.protocol
+      : (vault?.protocol as any)?.name ?? "LI.FI";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
@@ -187,136 +194,172 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm cursor-pointer" onClick={onClose} />
 
       <div className={cn(
-        "relative z-10 w-full bg-[#1a1a24] border border-[#2a2a3a]",
-        "sm:max-w-lg sm:rounded-3xl rounded-t-3xl",
-        "shadow-[0_24px_64px_rgba(0,0,0,0.5)] overflow-hidden"
+        "relative z-10 w-full sm:max-w-[520px]",
+        "rounded-t-[20px] sm:rounded-[20px] overflow-hidden",
+        "border border-[#464646]",
+        "shadow-[0px_2px_12px_0px_rgba(73,73,73,0.25)]",
+        "backdrop-blur-[37.65px]",
+        "bg-[linear-gradient(180deg,rgba(14,11,20,0.92)_0%,rgba(31,9,69,0.78)_45%,rgba(14,11,20,0.92)_100%)]",
       )}>
-        {/* Header */}
-        <div className="bg-gradient-to-r from-purple-950/50 to-[#1a1a24] px-6 py-5 border-b border-[#2a2a3a] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-purple-600/20 flex items-center justify-center">
-              <img src={asset.token.logoUrl} alt={asset.token.symbol} className="w-6 h-6 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        <div className="flex flex-col gap-5 px-6 pt-6 pb-4">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-[#22222e] shrink-0 flex items-center justify-center">
+                <img
+                  src={asset.token.logoUrl}
+                  alt={asset.token.symbol}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              </div>
+              <div className="flex flex-col gap-1 justify-center min-w-0">
+                <h2 className="font-medium text-white text-[20px] leading-none tracking-[0.6px] capitalize truncate">
+                  Fix Your {asset.token.symbol}
+                </h2>
+                <p className="text-[#cacaca] text-[12px] tracking-[0.4px] capitalize truncate">
+                  Deposit into {vault?.name ?? "best"} vault
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-semibold text-[#f0f0f5] text-lg">Fix Your {asset.token.symbol}</h2>
-              <p className="text-xs text-[#9898a8]">Deposit into {vault?.name ?? "best vault"}</p>
-            </div>
+            <button
+              onClick={onClose}
+              className="cursor-pointer shrink-0 w-7 h-7 flex items-center justify-center text-[#cacaca] hover:text-white transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" strokeWidth={2} />
+            </button>
           </div>
-          <button onClick={onClose} className="cursor-pointer w-8 h-8 rounded-full bg-[#22222e] hover:bg-[#2a2a3a] flex items-center justify-center transition-colors">
-            <X className="w-4 h-4 text-[#9898a8]" />
-          </button>
-        </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-4">
           {modalState === "success" ? (
-            <div className="text-center py-8">
-              <CheckCircle2 className="w-16 h-16 text-[#00d4aa] mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-[#f0f0f5] mb-2">You're now earning! 🎉</h3>
-              <p className="text-[#9898a8] text-sm">
-                Your {asset.token.symbol} is earning <span className="text-[#00d4aa] font-semibold">{totalApy} APY</span> in {vault?.name}. That's +{yearlyEarnings}/year.
+            <div className="rounded-[10px] bg-[rgba(14,11,20,0.67)] backdrop-blur-[37.65px] p-6 text-center">
+              <CheckCircle2 className="w-12 h-12 text-[#00a888] mx-auto mb-3" />
+              <p className="text-white text-[16px] font-medium mb-1.5">You're now earning!</p>
+              <p className="text-[#cacaca] text-[12px]">
+                Your {asset.token.symbol} is earning <span className="text-[#00a888] font-semibold">{totalApy} APY</span> in {vault?.name}. That's +{yearlyEarnings}/year.
               </p>
             </div>
           ) : (
-            <>
-              {/* Vault card */}
+            <div className="flex flex-col gap-3">
+              {/* Vault APY card */}
               {vault && (
-                <div className="rounded-2xl bg-[#22222e] border border-[#2a2a3a] p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <a href={vaultUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#a78bfa] hover:text-white underline underline-offset-2 cursor-pointer">
-                {vault.name} ↗
-              </a>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-[#00d4aa]/10 border border-[#00d4aa]/20 text-[#00d4aa]">Verified</span>
-                    </div>
-                    <span className="font-mono font-black text-[#00d4aa] text-xl">{totalApy}</span>
-                  </div>
-                  {modalState === "loading" ? (
-                    <div className="space-y-2">
-                      <div className="skeleton h-3 rounded w-full" />
-                      <div className="skeleton h-3 rounded w-3/4" />
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5 text-xs text-[#9898a8]">
-                      {vault.analytics?.apy?.base != null && (
-                        <div className="flex justify-between"><span>Base yield</span><span className="text-[#f0f0f5] font-mono">{vault.analytics.apy.base.toFixed(1)}%</span></div>
-                      )}
-                      {vault.analytics?.apy?.reward != null && vault.analytics.apy.reward > 0 && (
-                        <div className="flex justify-between"><span>Reward tokens</span><span className="text-[#f0f0f5] font-mono">{vault.analytics.apy.reward.toFixed(1)}%</span></div>
-                      )}
-                      <div className="border-t border-[#2a2a3a] my-1" />
-                      <div className="flex justify-between font-semibold">
-                        <span className="text-[#f0f0f5]">Total APY</span>
-                        <span className="text-[#00d4aa] font-mono">{totalApy}</span>
+                <div className="rounded-[10px] bg-[rgba(14,11,20,0.67)] backdrop-blur-[37.65px] p-4">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <a
+                          href={vaultUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-[#c9f352] text-[16px] tracking-[0.6px] uppercase underline truncate hover:text-[#d4ff5e]"
+                        >
+                          {asset.token.symbol}
+                        </a>
+                        <span className="shrink-0 px-2.5 py-1 rounded-[4px] bg-[rgba(16,185,129,0.13)] text-[#00a888] text-[10px] font-bold tracking-[0.6px] uppercase">
+                          Verified
+                        </span>
                       </div>
+                      <span className="text-[#00a888] text-[16px] font-medium tracking-[0.6px] uppercase whitespace-nowrap">
+                        {totalApy}
+                      </span>
                     </div>
-                  )}
+
+                    {modalState === "loading" ? (
+                      <div className="space-y-2">
+                        <div className="skeleton h-3 rounded w-full" />
+                        <div className="skeleton h-3 rounded w-3/4" />
+                      </div>
+                    ) : (
+                      <>
+                        {baseApy != null && (
+                          <div className="flex justify-between items-center text-[#cacaca] text-[13px]">
+                            <span>Base Yield</span>
+                            <span>{baseApy.toFixed(1)}%</span>
+                          </div>
+                        )}
+                        {rewardApy != null && rewardApy > 0 && (
+                          <div className="flex justify-between items-center text-[#cacaca] text-[13px]">
+                            <span>Reward tokens</span>
+                            <span>{rewardApy.toFixed(1)}%</span>
+                          </div>
+                        )}
+                        <div className="border-t border-[#373737] pt-3 flex justify-between items-center text-[14px]">
+                          <span className="text-white">Total APY</span>
+                          <span className="text-[#00a888]">{totalApy}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* Deposit details */}
-              <div className="rounded-2xl bg-[#22222e] border border-[#2a2a3a] p-4">
+              {/* Deposit card */}
+              <div className="rounded-[10px] bg-[rgba(14,11,20,0.67)] backdrop-blur-[37.65px] p-4 flex flex-col gap-3">
+                <p className="text-[#cacaca] text-[11px] font-medium tracking-[0.4px] uppercase">
+                  Your Deposit
+                </p>
                 {modalState === "loading" ? (
-                  <div className="skeleton h-12 rounded w-full" />
+                  <div className="skeleton h-10 rounded w-full" />
                 ) : (
-                  <>
-                    <p className="text-xs text-[#5a5a6a] uppercase tracking-wider mb-3">Your Deposit</p>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-mono text-xl font-bold text-[#f0f0f5]">
-                          {asset.balance.toLocaleString("en-US", { maximumFractionDigits: 6 })} {asset.token.symbol}
-                        </p>
-                        <p className="text-sm text-[#9898a8]">{formatUsd(asset.usdValue)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-[#5a5a6a]">You'll earn yearly</p>
-                        <p className="font-mono text-lg font-bold text-[#00d4aa]">+{yearlyEarnings}</p>
-                      </div>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-3 text-[20px] font-medium tracking-[0.6px] uppercase">
+                      <p className="text-white truncate">
+                        {asset.balance.toLocaleString("en-US", { maximumFractionDigits: 6 })} {asset.token.symbol}
+                      </p>
+                      <p className="text-[#00a888] whitespace-nowrap">+{yearlyEarnings}</p>
                     </div>
-                  </>
+                    <div className="flex items-start justify-between text-[#cacaca] text-[12px]">
+                      <p>{formatUsd(asset.usdValue)}</p>
+                      <p>You'll Earn Yearly</p>
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {/* Gas + network */}
-              <div className="flex items-center justify-between text-xs text-[#5a5a6a] px-1">
+              {/* Network / gas */}
+              <div className="flex items-center justify-between py-1 text-[#cacaca] text-[12px] tracking-[0.4px] capitalize">
                 <span>Network: {chainName}</span>
-                <span>Gas estimate: {gasEstimate}</span>
+                <span>Gas Estimate: {gasEstimate}</span>
               </div>
 
               {/* LI.FI route */}
-              <div className="rounded-xl bg-purple-950/20 border border-purple-500/20 p-3">
-                <p className="text-xs text-purple-300 font-medium mb-1.5">Powered by LI.FI Composer</p>
-                <div className="flex items-center gap-2 text-xs text-[#9898a8]">
-                  <span className="font-mono">{asset.token.symbol}</span>
-                  <span>→</span>
-                  <span className="text-[#f0f0f5]">
-                    {typeof vault?.protocol === "string" 
-                      ? vault.protocol 
-                      : (vault?.protocol as any)?.name ?? "LI.FI"}
-                  </span>
-                  <span>→</span>
-                  <span className="text-[#00d4aa] font-mono">{vault?.name}</span>
+              <div
+                className="rounded-[10px] backdrop-blur-[37.65px] p-4"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(98.47deg, rgba(14, 11, 20, 0.67) 1%, rgba(31, 9, 69, 0.67) 45%, rgba(14, 11, 20, 0.67) 100%)",
+                }}
+              >
+                <div className="flex flex-col gap-2">
+                  <p className="text-[#cacaca] text-[11px] font-medium tracking-[0.4px] uppercase">
+                    Powered by LI.FI Composer
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-[12px] tracking-[0.4px] capitalize">
+                    <span className="text-[#cacaca]">{asset.token.symbol}</span>
+                    <span className="text-[#cacaca]">→</span>
+                    <span className="text-white">{protocolName}</span>
+                    <span className="text-[#cacaca]">→</span>
+                    <span className="text-[#00a888]">{vault?.name ?? asset.token.symbol}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Error */}
               {(txError || (modalState === "error" && quoteError)) && (
                 <div className="flex items-start gap-2 p-3 rounded-xl bg-red-950/30 border border-red-500/20 text-xs text-red-400">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <span>{txError ?? quoteError}</span>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 
-        {/* Footer CTA */}
         {modalState !== "success" && (
-          <div className="px-6 pb-6 pt-0">
+          <div className="px-6 pb-6">
             {!authenticated ? (
               <button
                 onClick={login}
-                className="cursor-pointer w-full h-14 rounded-2xl font-bold text-base text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 shadow-[0_0_32px_rgba(124,58,237,0.25)] transition-all active:scale-[0.98]"
+                className="cursor-pointer w-full rounded-[10px] bg-[#c9f352] hover:bg-[#d4ff5e] px-4 py-3.5 text-black text-[15px] font-medium text-center transition-colors active:scale-[0.99]"
               >
                 Connect Wallet to Fix This
               </button>
@@ -324,32 +367,32 @@ export function FixModal({ asset, onClose, onFixed }: FixModalProps) {
               <button
                 onClick={handleApprove}
                 disabled={modalState === "loading" || isApproving || isWaitingForApproval || !quote}
-                className="cursor-pointer w-full h-14 rounded-2xl font-bold text-base text-white bg-gradient-to-r from-[#00b492] to-[#00d4aa] hover:from-[#00d4aa] shadow-[0_0_32px_rgba(0,212,170,0.25)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="font-bold cursor-pointer w-full rounded-[10px] bg-[#c9f352] hover:bg-[#d4ff5e] px-4 py-3.5 text-black text-[15px] text-center transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isApproving ? (
                   <><Loader2 className="w-4 h-4 animate-spin" />Confirming in wallet...</>
                 ) : isWaitingForApproval ? (
                   <><Loader2 className="w-4 h-4 animate-spin" />Waiting for network...</>
                 ) : (
-                  <><Lock className="w-4 h-4" />Approve {asset.token.symbol}</>
+                  <>Approve {asset.token.symbol}</>
                 )}
               </button>
             ) : (
               <button
                 onClick={handleDeposit}
                 disabled={modalState === "loading" || modalState === "submitting" || !quote}
-                className="cursor-pointer w-full h-14 rounded-2xl font-bold text-base text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 shadow-[0_0_32px_rgba(124,58,237,0.25)] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="cursor-pointer w-full rounded-[10px] bg-[#c9f352] hover:bg-[#d4ff5e] px-4 py-3.5 text-black text-[15px] font-bold text-center transition-colors active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {modalState === "submitting" ? (
                   <><Loader2 className="w-4 h-4 animate-spin" />Confirming in wallet...</>
                 ) : modalState === "loading" ? (
                   <><Loader2 className="w-4 h-4 animate-spin" />Getting best quote...</>
                 ) : (
-                  `Deposit Now — Earn ${totalApy} APY`
+                  `Deposit`
                 )}
               </button>
             )}
-            <p className="text-center text-xs text-[#5a5a6a] mt-3">Withdrawable anytime. No lockups.</p>
+            <p className="text-center text-[11px] text-[#cacaca] mt-2">Withdrawable anytime. No lockups.</p>
           </div>
         )}
       </div>
