@@ -115,7 +115,7 @@ export function ShareCard({ report }: ShareCardProps) {
           {/* Footer */}
           <div className="flex items-center justify-between pt-3 border-t border-[#1e1e2c]">
             <span className="text-xs text-[#5a5a6a]">powered by LI.FI Earn API</span>
-            <span className="text-xs text-[#7c3aed] font-mono">deadmoney.xyz</span>
+            <span className="text-xs text-[#7c3aed] font-mono">deadmoney.vercel.app</span>
           </div>
         </div>
       </div>

@@ -280,7 +280,7 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
             Powered By LI.FI Earn API
           </p>
           <p className="text-[11px] text-[#c9f352] tracking-[0.56px] capitalize">
-            deadmoney.xyz
+            deadmoney.vercel.app
           </p>
         </div>
       </div>
