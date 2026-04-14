@@ -347,9 +347,7 @@ export function DeadMoneyReport({
           </div>
           </div>
         </div>
-        ) : activePositions.length > 0 ? (
-          <ActiveYieldCard activeUsd={activeUsd} annualYield={annualYield} hasActive={true} />
-        ) : null}
+          ) : null}
 
         {/* Active yield banner — shown below table when there are idle assets but also some active positions */}
         {!isHealthy && !hideActiveYield && activePositions.length > 0 && (

@@ -185,6 +185,7 @@ export default function ScanPage({ loaderData }: Route.ComponentProps) {
                 onWithdrawn={() => handleFixed(null as any)}
                 variant="scan"
                 refreshing={refreshing}
+                showBottomWorkingMessage={report.idleAssets.length > 0}
               />
             </div>
           </>

@@ -13,9 +13,17 @@ interface MyDepositsProps {
   onWithdrawn?: () => void;
   variant?: "scan" | "deposits";
   refreshing?: boolean;
+  showBottomWorkingMessage?: boolean;
 }
 
-export function MyDeposits({ positions, walletAddress, onWithdrawn, variant = "scan", refreshing = false }: MyDepositsProps) {
+export function MyDeposits({
+  positions,
+  walletAddress,
+  onWithdrawn,
+  variant = "scan",
+  refreshing = false,
+  showBottomWorkingMessage = true,
+}: MyDepositsProps) {
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<Position | null>(null);
   const yearlySaved = useMemo(() => calculateYearlyYield(positions), [positions]);
 
@@ -308,9 +316,11 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn, variant = "s
         </div>
         </div>
 
-        <p className="text-[14px] text-[#cfcfcf] text-center">
-          Your Money Is Working! All Positions are live on-chain
-        </p>
+        {showBottomWorkingMessage && (
+          <p className="text-[14px] text-[#cfcfcf] text-center">
+            Your Money Is Working! All Positions are live on-chain
+          </p>
+        )}
       </div>
 
       {selectedWithdrawal && (
@@ -354,4 +364,3 @@ function DepositStat({
     </div>
   );
 }
-
