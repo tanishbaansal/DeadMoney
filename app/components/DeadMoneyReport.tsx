@@ -81,8 +81,10 @@ export function DeadMoneyReport({
       <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 lg:py-12 space-y-6">
         {/* Hero card */}
         {isHealthy ? (
-          <section
-            className="rounded-[12px] backdrop-blur-[37.65px] px-6 sm:px-8 py-10 flex flex-col items-center gap-10"
+          <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] gap-6 items-stretch">
+            <ScoreCard score={report.deadMoneyScore} />
+            <section
+            className="rounded-[12px] backdrop-blur-[37.65px] px-6 sm:px-8 py-10 flex flex-col items-center justify-center gap-10 h-full"
             style={{
               backgroundImage:
                 "linear-gradient(112.07deg, rgba(2, 9, 6, 0.9) 0%, rgba(0, 41, 33, 0.396) 98.22%)",
@@ -108,6 +110,7 @@ export function DeadMoneyReport({
               per year by keeping your assets in yield-bearing vaults.
             </p>
           </section>
+          </div>
         ) : (
           <section
             className="relative rounded-[12px] overflow-hidden px-6 py-10 sm:py-14 flex flex-col items-center gap-6 sm:gap-8 backdrop-blur-xl"
@@ -344,12 +347,9 @@ export function DeadMoneyReport({
           </div>
           </div>
         </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] gap-6 items-start">
-            <ScoreCard score={report.deadMoneyScore} />
-            <ActiveYieldCard activeUsd={activeUsd} annualYield={annualYield} hasActive={activePositions.length > 0} />
-          </div>
-        )}
+        ) : activePositions.length > 0 ? (
+          <ActiveYieldCard activeUsd={activeUsd} annualYield={annualYield} hasActive={true} />
+        ) : null}
 
         {/* Active yield banner — shown below table when there are idle assets but also some active positions */}
         {!isHealthy && !hideActiveYield && activePositions.length > 0 && (
