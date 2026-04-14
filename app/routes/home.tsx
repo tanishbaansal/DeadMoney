@@ -112,7 +112,7 @@ export default function Home() {
               className="m-0 max-w-[760px] text-center text-white"
               style={{
                 fontSize: "clamp(14px, 1.2vw, 19px)",
-                fontWeight: 500,
+                fontWeight: 300,
                 lineHeight: 1.5,
               }}
             >

@@ -14,6 +14,8 @@ interface DeadMoneyReportProps {
   activePositions?: any[];
   canFix?: boolean;
   fixDisabledReason?: string;
+  hideActiveYield?: boolean;
+  refreshing?: boolean;
 }
 
 export function DeadMoneyReport({
@@ -22,6 +24,8 @@ export function DeadMoneyReport({
   activePositions = [],
   canFix = true,
   fixDisabledReason = "Connect your wallet to use Fix This on your assets.",
+  hideActiveYield = false,
+  refreshing = false,
 }: DeadMoneyReportProps) {
   const [fixingAsset, setFixingAsset] = useState<IdleAsset | null>(null);
   const [fixedKeys, setFixedKeys] = useState<Set<string>>(new Set());
@@ -74,7 +78,7 @@ export function DeadMoneyReport({
       className="w-full text-white"
       style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
     >
-      <div className="mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 py-8 lg:py-12 space-y-6">
+      <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 py-8 lg:py-12 space-y-6">
         {/* Hero card */}
         {isHealthy ? (
           <section
@@ -152,15 +156,19 @@ export function DeadMoneyReport({
           </section>
         )}
 
-        {/* Score + Active yield row */}
-        <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] gap-6">
+        {/* Score + Idle table row (matches new Figma layout) */}
+        {!isHealthy ? (
+        <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] gap-6 items-start">
           <ScoreCard score={report.deadMoneyScore} />
-          <ActiveYieldCard activeUsd={activeUsd} annualYield={annualYield} hasActive={activePositions.length > 0} />
-        </div>
-
-        {/* Idle assets table */}
-        {!isHealthy && (
-        <div className="rounded-[12px] border border-[#373737] bg-[rgba(14,11,20,0.67)] overflow-hidden">
+          <div className="rounded-[12px] border border-[#373737] bg-[rgba(14,11,20,0.67)] overflow-hidden relative">
+          {refreshing && (
+            <div className="absolute inset-0 z-20 bg-[rgba(14,11,20,0.55)] backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[rgba(14,11,20,0.85)] ring-1 ring-[#c9f352]/30">
+                <span className="w-2 h-2 rounded-full bg-[#c9f352] animate-pulse" />
+                <span className="text-[12px] font-medium text-white tracking-[0.4px] uppercase">Fetching latest positions…</span>
+              </div>
+            </div>
+          )}
           {/* Info banner */}
           <div className="flex gap-3 items-center bg-[rgba(29,72,229,0.14)] px-4 py-4 border-b border-[#1d48e533]">
             <Info className="w-5 h-5 text-[#6aa5ff] shrink-0" />
@@ -188,8 +196,8 @@ export function DeadMoneyReport({
             return (
               <div
                 key={key}
-                className="border-t border-[#262626]"
-                style={{ animation: `rowEnter 300ms ease-out ${i * 60}ms both` }}
+                className={`border-t border-[#262626] ${refreshing ? "animate-pulse opacity-60" : ""}`}
+                style={!refreshing ? { animation: `rowEnter 300ms ease-out ${i * 60}ms both` } : undefined}
               >
                 {/* Desktop row */}
                 <div
@@ -318,7 +326,18 @@ export function DeadMoneyReport({
               -{formatUsd(report.totalYearlyLossUsd)}
             </p>
           </div>
+          </div>
         </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-[296px_1fr] gap-6 items-start">
+            <ScoreCard score={report.deadMoneyScore} />
+            <ActiveYieldCard activeUsd={activeUsd} annualYield={annualYield} hasActive={activePositions.length > 0} />
+          </div>
+        )}
+
+        {/* Active yield banner — shown below table when there are idle assets but also some active positions */}
+        {!isHealthy && !hideActiveYield && activePositions.length > 0 && (
+          <ActiveYieldCard activeUsd={activeUsd} annualYield={annualYield} hasActive={true} />
         )}
       </div>
 
@@ -434,44 +453,45 @@ function ScoreCard({ score }: { score: number }) {
   );
 }
 
-function ActiveYieldCard({ activeUsd, annualYield, hasActive }: { activeUsd: number; annualYield: number; hasActive: boolean }) {
+export function ActiveYieldCard({ activeUsd, annualYield, hasActive }: { activeUsd: number; annualYield: number; hasActive: boolean }) {
   return (
     <div
-      className="relative rounded-[12px] overflow-hidden px-6 sm:px-8 py-6 flex flex-col gap-6 backdrop-blur-xl"
+      className="relative rounded-[12px] overflow-hidden h-[285px] px-6 sm:px-12 py-6 flex flex-col items-center justify-between backdrop-blur-[37.65px]"
       style={{
         backgroundImage:
-          "linear-gradient(111deg, rgba(2,9,6,0.9) 0%, rgba(6,70,58,0.9) 98%)",
+          "linear-gradient(123.88deg, rgba(2, 9, 6, 0.9) 0%, rgba(0, 41, 33, 0.396) 98.22%)",
       }}
     >
-      <div
+      {/* Decorative sparkle clusters from Figma — left top & right bottom */}
+      <img
+        src="/sparkle-1.svg"
+        alt=""
         aria-hidden
-        className="absolute right-0 top-0 w-[280px] h-[280px] pointer-events-none opacity-40"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(0,168,136,0.35) 0%, transparent 70%)",
-        }}
+        className="absolute left-0 top-0 w-[367px] h-[241px] pointer-events-none select-none"
       />
-      <Sparkles
+      <img
+        src="/sparkle-2.svg"
+        alt=""
         aria-hidden
-        className="absolute right-4 top-4 w-40 h-40 sm:w-56 sm:h-56 text-[#00a888] opacity-15 pointer-events-none"
-        strokeWidth={1}
+        className="absolute right-0 bottom-0 w-[387px] h-[285px] pointer-events-none select-none"
       />
-      <p className="relative z-10 text-[20px] sm:text-[24px] font-medium text-white">
+
+      <p className="relative z-10 text-[20px] sm:text-[24px] font-medium text-white text-center">
         {hasActive ? "Your Money Is Working!" : "How to rescue your dead money"}
       </p>
 
-      <div className="relative z-10 flex flex-col sm:flex-row gap-6 sm:gap-14">
-        <div className="flex flex-col gap-3 sm:border-r sm:border-[rgba(255,255,255,0.24)] sm:pr-14">
-          <p className="text-[13px] sm:text-[14px] font-medium text-white tracking-[0.56px] uppercase">Active Investments</p>
+      <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-14 text-center">
+        <div className="flex flex-col items-center gap-3 sm:border-r sm:border-white sm:pr-14">
+          <p className="text-[12px] sm:text-[14px] font-medium text-white tracking-[0.56px] uppercase">Active Investments</p>
           <p className="text-[32px] sm:text-[40px] font-medium text-white leading-none">{formatUsd(activeUsd)}</p>
         </div>
-        <div className="flex flex-col gap-3">
-          <p className="text-[13px] sm:text-[14px] font-medium text-white tracking-[0.56px] uppercase">Annual Yield</p>
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-[12px] sm:text-[14px] font-medium text-white tracking-[0.56px] uppercase">Annual Yield</p>
           <p className="text-[32px] sm:text-[40px] font-medium text-[#00a888] leading-none">+{formatUsd(annualYield)}</p>
         </div>
       </div>
 
-      <p className="relative z-10 text-[14px] sm:text-[16px] text-white max-w-[585px] leading-relaxed">
+      <p className="relative z-10 text-[14px] sm:text-[16px] text-white max-w-[585px] leading-relaxed text-center">
         {hasActive
           ? "You're already saving thousands by keeping these assets in yield-bearing vaults."
           : "Click Fix This on any row to deposit idle assets into the best available vault. Your funds are withdrawable anytime — no lockups."}
@@ -481,7 +501,7 @@ function ActiveYieldCard({ activeUsd, annualYield, hasActive }: { activeUsd: num
         <div className="relative z-10">
           <button
             onClick={() => { const el = document.getElementById("my-deposits"); el?.scrollIntoView({ behavior: "smooth" }); }}
-            className="inline-flex items-center gap-2 bg-[rgba(3,59,48,0.5)] hover:bg-[rgba(3,59,48,0.75)] rounded-[4px] px-5 py-2.5 text-[12px] font-bold text-[#00a888] transition-colors"
+            className="inline-flex items-center gap-2 bg-[rgba(3,59,48,0.31)] hover:bg-[rgba(3,59,48,0.6)] rounded-[4px] px-5 py-2.5 text-[12px] font-bold text-[#00a888] transition-colors"
           >
             Manage Positions
             <ArrowUpRight className="w-4 h-4" />

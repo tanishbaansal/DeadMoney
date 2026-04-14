@@ -62,7 +62,7 @@ export default function DepositsPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#020313] text-[#f0f0f5]" style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
       <PageBackground />
-      <div className="relative z-10 mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+      <div className="relative z-10 mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 py-10 space-y-6">
         {positions.length > 0 ? (
           <>
             {/* Gradient "Your Money Is Working!" hero */}

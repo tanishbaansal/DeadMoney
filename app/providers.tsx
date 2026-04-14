@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { mainnet, base, arbitrum, optimism, polygon, zkSync } from "wagmi/chains";
 import type { ReactNode } from "react";
+import { ToastProvider } from "./components/Toast";
 
 const wagmiConfig = createConfig({
   chains: [mainnet, base, arbitrum, optimism, polygon, zkSync],
@@ -38,7 +39,7 @@ export function Providers({ children }: { children: ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
-          {children}
+          <ToastProvider>{children}</ToastProvider>
         </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>

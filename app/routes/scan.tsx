@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import type { Route } from "./+types/scan";
 import { usePrivy } from "@privy-io/react-auth";
@@ -9,10 +9,12 @@ import { useVaults } from "~/hooks/useVaults";
 import { buildReport } from "~/lib/deadMoney";
 import type { DeadMoneyReport as Report, IdleAsset } from "~/lib/deadMoney";
 import { ScanProgress } from "~/components/ScanProgress";
-import { DeadMoneyReport } from "~/components/DeadMoneyReport";
+import { DeadMoneyReport, ActiveYieldCard } from "~/components/DeadMoneyReport";
 import { MyDeposits } from "~/components/MyDeposits";
 import { ShareReportCard } from "~/components/ShareReportCard";
 import { PageBackground } from "~/components/PageBackground";
+import { getBestApy } from "~/lib/earnApi";
+import { useToast } from "~/components/Toast";
 
 // Lightweight server loader — just passes the raw param through.
 // ENS resolution happens client-side to avoid viem Node.js issues in SSR.
@@ -69,6 +71,10 @@ export default function ScanPage({ loaderData }: Route.ComponentProps) {
 
   const { balances, status: balanceStatus, refetch: refetchBalances } = useTokenBalances(resolvedAddress);
   const { positions, status: portfolioStatus, refetch: refetchPortfolio } = usePortfolio(resolvedAddress);
+  const toast = useToast();
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshToastIdRef = useRef<number | null>(null);
+  const refreshSawLoadingRef = useRef(false);
 
   const isReadyForVaults = (balanceStatus === "done" || balanceStatus === "error") && 
                            (portfolioStatus === "done" || portfolioStatus === "error");
@@ -87,12 +93,44 @@ export default function ScanPage({ loaderData }: Route.ComponentProps) {
   }, [isDone, resolvedAddress, balances, positions, vaultMap]);
 
   function handleFixed(_asset: IdleAsset) {
-    // Trigger background refetch silently
+    // Show loading toast + skeleton overlay until refetch resolves
+    if (refreshToastIdRef.current == null) {
+      refreshToastIdRef.current = toast.show("Fetching latest positions…", "loading");
+    }
+    refreshSawLoadingRef.current = false;
+    setRefreshing(true);
     setTimeout(() => {
       refetchBalances();
       refetchPortfolio();
-    }, 3000); // Shorter wait
+    }, 3000); // Wait for chain settlement
   }
+
+  // Clear refreshing state + toast once portfolio refetch finishes (after we've seen loading)
+  useEffect(() => {
+    if (!refreshing) return;
+    if (portfolioStatus === "loading") {
+      refreshSawLoadingRef.current = true;
+      return;
+    }
+    if (
+      refreshSawLoadingRef.current &&
+      (portfolioStatus === "done" || portfolioStatus === "error")
+    ) {
+      const t = setTimeout(() => {
+        setRefreshing(false);
+        refreshSawLoadingRef.current = false;
+        if (refreshToastIdRef.current != null) {
+          toast.update(refreshToastIdRef.current, {
+            message: "Positions updated",
+            variant: "success",
+            duration: 2500,
+          });
+          refreshToastIdRef.current = null;
+        }
+      }, 300);
+      return () => clearTimeout(t);
+    }
+  }, [refreshing, portfolioStatus, toast]);
 
   if (resolveError) {
     return (
@@ -122,19 +160,34 @@ export default function ScanPage({ loaderData }: Route.ComponentProps) {
           activePositions={positions}
           canFix={canFixScannedWallet}
           fixDisabledReason={fixDisabledReason}
+          hideActiveYield
+          refreshing={refreshing}
         />
-        <div className="mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 pb-12">
           <ShareReportCard report={report} />
         </div>
         {positions.length > 0 && resolvedAddress && (
-          <div className="mx-auto w-full max-w-[1164px] px-4 sm:px-6 lg:px-8 pb-12">
-            <MyDeposits
-              positions={positions}
-              walletAddress={resolvedAddress}
-              onWithdrawn={() => handleFixed(null as any)}
-              variant="scan"
-            />
-          </div>
+          <>
+            <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 pb-6">
+              <ActiveYieldCard
+                activeUsd={positions.reduce((s, p) => s + (p.stakedTokenAmountUsd ?? 0), 0)}
+                annualYield={positions.reduce(
+                  (s, p) => s + (p.stakedTokenAmountUsd ?? 0) * (getBestApy(p.vault) / 100),
+                  0
+                )}
+                hasActive
+              />
+            </div>
+            <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 pb-12">
+              <MyDeposits
+                positions={positions}
+                walletAddress={resolvedAddress}
+                onWithdrawn={() => handleFixed(null as any)}
+                variant="scan"
+                refreshing={refreshing}
+              />
+            </div>
+          </>
         )}
       </div>
     </div>

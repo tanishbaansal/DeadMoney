@@ -262,12 +262,31 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
       const chainId = position.chainId;
       const publicClient = getPublicClient(chainId as any);
 
+      console.log("[WithdrawModal] === withdraw start ===", {
+        chainId,
+        userAddress,
+        vault: {
+          address: vault.address,
+          asset: vault.asset,
+          decimals: vault.decimals,
+          name: vault.name,
+        },
+        cachedStakedAmount: position.stakedTokenAmount,
+        cachedStakedUsd: position.stakedTokenAmountUsd,
+        isNative,
+      });
+
       const liveBal = (await publicClient.readContract({
         address: vault.address as `0x${string}`,
         abi: erc20Abi,
         functionName: "balanceOf",
         args: [userAddress as `0x${string}`],
       })) as bigint;
+
+      console.log("[WithdrawModal] live balance", {
+        liveBal: liveBal.toString(),
+        liveBalFormatted: (Number(liveBal) / 10 ** (vault.decimals || 18)).toString(),
+      });
 
       if (liveBal === 0n) {
         throw new Error("Live balance is zero — nothing to withdraw.");
@@ -280,6 +299,14 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
       const pctBuffer = liveBal / 400n; // 0.25%
       const dustBuffer = minBuffer > pctBuffer ? minBuffer : pctBuffer;
       const safeAmount = liveBal > dustBuffer ? liveBal - dustBuffer : 0n;
+
+      console.log("[WithdrawModal] computed safeAmount", {
+        oneToken: oneToken.toString(),
+        minBuffer: minBuffer.toString(),
+        pctBuffer: pctBuffer.toString(),
+        dustBuffer: dustBuffer.toString(),
+        safeAmount: safeAmount.toString(),
+      });
 
       if (safeAmount === 0n) {
         throw new Error("Live balance is zero — nothing to withdraw.");
@@ -301,10 +328,19 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         ),
       ).map((v) => BigInt(v));
 
+      console.log("[WithdrawModal] candidates", amountCandidates.map((v) => v.toString()));
+
       let tx: { to: string; data: string; value?: string; gasLimit?: string } | null = null;
       let simulationError: string | null = null;
+      const attempts: Array<{ amount: string; stage: string; error?: string }> = [];
 
-      for (const candidateAmount of amountCandidates) {
+      for (let idx = 0; idx < amountCandidates.length; idx++) {
+        const candidateAmount = amountCandidates[idx];
+        const candidateStr = candidateAmount.toString();
+        console.log(`[WithdrawModal] --- attempt ${idx + 1}/${amountCandidates.length} ---`, {
+          candidateAmount: candidateStr,
+          pctOfLive: ((Number(candidateAmount) / Number(liveBal)) * 100).toFixed(3) + "%",
+        });
         try {
           const fresh = await getComposerQuote({
             fromChain: chainId,
@@ -313,11 +349,22 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
             toToken: vault.asset,
             fromAddress: userAddress,
             toAddress: userAddress,
-            fromAmount: candidateAmount.toString(),
+            fromAmount: candidateStr,
             slippage: 0.03,
           });
           const nextTx = fresh.transactionRequest;
           const freshSpender = fresh.estimate.approvalAddress as `0x${string}` | undefined;
+
+          console.log(`[WithdrawModal] quote ok`, {
+            tool: (fresh as any).tool,
+            approvalAddress: freshSpender,
+            txTo: nextTx.to,
+            txValue: nextTx.value ?? "0",
+            txDataPrefix: nextTx.data?.slice(0, 10),
+            estimateFromAmount: fresh.estimate?.fromAmount,
+            estimateToAmount: fresh.estimate?.toAmount,
+            estimateToAmountMin: fresh.estimate?.toAmountMin,
+          });
 
           // Verify allowance for this exact candidate route/spender.
           if (!isNative && freshSpender) {
@@ -328,9 +375,18 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
               args: [userAddress as `0x${string}`, freshSpender],
             })) as bigint;
 
-
             const inlineApprovalAmount = candidateAmount + approvalBuffer;
+            console.log(`[WithdrawModal] allowance check`, {
+              liveAllowance: liveAllowance.toString(),
+              inlineApprovalAmount: inlineApprovalAmount.toString(),
+              needsApproval: liveAllowance < inlineApprovalAmount,
+            });
+
             if (liveAllowance < inlineApprovalAmount) {
+              console.log(`[WithdrawModal] sending approve tx`, {
+                spender: freshSpender,
+                amount: inlineApprovalAmount.toString(),
+              });
               const approveClient = await getWalletClientForChain(chainId);
               const approveTxHash = await approveClient.writeContract({
                 chain: CHAIN_MAP[chainId],
@@ -339,27 +395,46 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
                 functionName: "approve",
                 args: [freshSpender, inlineApprovalAmount],
               });
+              console.log(`[WithdrawModal] approve tx hash`, approveTxHash);
               await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
+              console.log(`[WithdrawModal] approve confirmed`);
             }
           }
 
           // Simulate this candidate before asking wallet to sign.
+          console.log(`[WithdrawModal] simulating call`);
           await publicClient.call({
             account: userAddress as `0x${string}`,
             to: nextTx.to as `0x${string}`,
             data: nextTx.data as `0x${string}`,
             value: BigInt(nextTx.value ?? "0"),
           });
+          console.log(`[WithdrawModal] simulation passed for attempt ${idx + 1}`);
+          attempts.push({ amount: candidateStr, stage: "success" });
           tx = nextTx;
           simulationError = null;
           break;
         } catch (simErr) {
           const msg = simErr instanceof Error ? simErr.message : String(simErr);
+          const stack = simErr instanceof Error ? simErr.stack : undefined;
+          console.warn(`[WithdrawModal] attempt ${idx + 1} FAILED`, {
+            candidateAmount: candidateStr,
+            error: msg,
+            stack: stack?.split("\n").slice(0, 4).join(" | "),
+          });
+          attempts.push({
+            amount: candidateStr,
+            stage: msg.toLowerCase().includes("quote") ? "quote" : "simulate",
+            error: msg.slice(0, 200),
+          });
           simulationError = msg;
         }
       }
 
+      console.log("[WithdrawModal] === all attempts summary ===", attempts);
+
       if (!tx) {
+        console.error("[WithdrawModal] all candidates failed", { attempts, lastError: simulationError });
         throw new Error(
           `Simulation reverted for all withdraw candidates. Last error: ${(simulationError ?? "unknown").slice(0, 220)}`,
         );
@@ -367,6 +442,13 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
 
       const walletClient = await getWalletClientForChain(chainId);
       const gas = await resolveGasLimit(chainId, tx);
+      console.log("[WithdrawModal] sending tx", {
+        to: tx.to,
+        value: tx.value ?? "0",
+        gas: gas.toString(),
+        dataPrefix: tx.data?.slice(0, 10),
+        dataLength: tx.data?.length,
+      });
 
       const hash = await walletClient.sendTransaction({
         chain: CHAIN_MAP[chainId],
@@ -375,6 +457,7 @@ export function WithdrawModal({ position, onClose, onWithdrawn }: WithdrawModalP
         value: BigInt(tx.value ?? "0"),
         gas,
       });
+      console.log("[WithdrawModal] tx submitted", { hash });
 
       setModalState("success");
       confetti({

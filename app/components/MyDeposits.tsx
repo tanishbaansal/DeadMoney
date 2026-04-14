@@ -12,9 +12,10 @@ interface MyDepositsProps {
   walletAddress: string;
   onWithdrawn?: () => void;
   variant?: "scan" | "deposits";
+  refreshing?: boolean;
 }
 
-export function MyDeposits({ positions, walletAddress, onWithdrawn, variant = "scan" }: MyDepositsProps) {
+export function MyDeposits({ positions, walletAddress, onWithdrawn, variant = "scan", refreshing = false }: MyDepositsProps) {
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<Position | null>(null);
   const yearlySaved = useMemo(() => calculateYearlyYield(positions), [positions]);
 
@@ -34,39 +35,7 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn, variant = "s
       style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
     >
       <div className="flex flex-col items-center gap-6">
-        {variant === "scan" ? (
-          /* Centered hero — matches scan-page Figma */
-          <div className="w-full rounded-[12px] bg-[rgba(14,11,20,0.67)] backdrop-blur-[37.65px] px-6 py-10 flex flex-col items-center justify-center gap-9">
-            <div className="flex flex-col items-center gap-3 text-center text-[#faf6f6]">
-              <h2 className="text-[26px] sm:text-[32px] font-medium leading-none">
-                My Deposits
-              </h2>
-              <p className="text-[16px] sm:text-[20px]">
-                On-chain yield-bearing assets
-              </p>
-            </div>
-
-            <div className="inline-flex items-center gap-2.5 bg-[rgba(16,185,129,0.13)] rounded-[4px] px-4 py-2">
-              <span className="relative flex h-[9px] w-[9px]">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00a888] opacity-75" />
-                <span className="relative inline-flex h-[9px] w-[9px] rounded-full bg-[#00a888]" />
-              </span>
-              <p className="text-[12px] font-bold text-[#00a888] tracking-[0.84px] uppercase whitespace-nowrap">
-                {validPositions.length} active
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-stretch justify-center text-center">
-              <DepositStat label="Total Deposit" value={formatUsd(totalDeposited)} border />
-              <DepositStat label="Saving / Year" value={`+${formatUsd(yearlySaved)}`} border />
-              <DepositStat
-                label="Est. Current Growth"
-                value={`+${formatUsd(currentGrowth)}`}
-                valueClass="text-[#00a888]"
-              />
-            </div>
-          </div>
-        ) : (
+        {variant === "scan" ? null : (
           /* Left-aligned header strip — matches deposits-page Figma */
           <div className="w-full rounded-[12px] bg-[rgba(14,11,20,0.67)] backdrop-blur-[37.65px] p-6 flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0">
@@ -101,8 +70,71 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn, variant = "s
           </div>
         )}
 
+        <div className={variant === "scan" ? "w-full grid grid-cols-1 lg:grid-cols-[372px_1fr] gap-6 items-start" : "w-full"}>
+        {variant === "scan" && (
+          /* Side summary card — matches new scan-page Figma */
+          <div
+            className="rounded-[12px] backdrop-blur-[37.65px] px-6 py-10 flex flex-col items-center justify-center gap-9"
+            style={{
+              backgroundImage:
+                "linear-gradient(96.84deg, rgba(2, 9, 6, 0.9) 0%, rgba(0, 41, 33, 0.396) 98.22%)",
+            }}
+          >
+            <div className="flex flex-col items-center gap-3 text-center text-[#faf6f6]">
+              <h2 className="text-[28px] sm:text-[32px] font-medium leading-none">My Deposits</h2>
+              <p className="text-[16px] sm:text-[20px] text-[#faf6f6] whitespace-nowrap">On-chain yield-bearing assets</p>
+            </div>
+
+            <div className="inline-flex items-center gap-2.5 bg-[rgba(16,185,129,0.13)] rounded-[4px] px-4 py-2">
+              <span className="relative flex h-[9px] w-[9px]">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00a888] opacity-75" />
+                <span className="relative inline-flex h-[9px] w-[9px] rounded-full bg-[#00a888]" />
+              </span>
+              <p className="text-[12px] font-bold text-[#00a888] tracking-[0.84px] uppercase whitespace-nowrap">
+                {validPositions.length} active
+              </p>
+            </div>
+
+            <div className="flex items-stretch text-center w-full">
+              <div className="flex-1 flex flex-col items-center gap-4 px-2 border-r border-white">
+                <p className="text-[13px] sm:text-[14px] text-[#cacaca] uppercase tracking-[0.56px] font-medium whitespace-nowrap">
+                  Total Deposit
+                </p>
+                <p className="text-[26px] sm:text-[32px] font-medium text-white leading-none">
+                  {formatUsd(totalDeposited)}
+                </p>
+              </div>
+              <div className="flex-1 flex flex-col items-center gap-4 px-2">
+                <p className="text-[13px] sm:text-[14px] text-[#cacaca] uppercase tracking-[0.56px] font-medium whitespace-nowrap">
+                  Saving / Year
+                </p>
+                <p className="text-[26px] sm:text-[32px] font-medium text-white leading-none">
+                  +{formatUsd(yearlySaved)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-4 text-center w-full">
+              <p className="text-[13px] sm:text-[14px] text-[#cacaca] uppercase tracking-[0.56px] font-medium">
+                Est. Current Growth
+              </p>
+              <p className="text-[28px] sm:text-[32px] font-medium text-[#00a888] leading-none">
+                +{formatUsd(currentGrowth)}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Table */}
-        <div className="w-full rounded-[12px] border border-[#373737] bg-[rgba(14,11,20,0.67)] overflow-hidden">
+        <div className="w-full min-w-0 rounded-[12px] border border-[#373737] bg-[rgba(14,11,20,0.67)] overflow-hidden relative">
+          {refreshing && (
+            <div className="absolute inset-0 z-20 bg-[rgba(14,11,20,0.55)] backdrop-blur-[2px] flex items-center justify-center pointer-events-none">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[rgba(14,11,20,0.85)] ring-1 ring-[#c9f352]/30">
+                <span className="w-2 h-2 rounded-full bg-[#c9f352] animate-pulse" />
+                <span className="text-[12px] font-medium text-white tracking-[0.4px] uppercase">Fetching latest positions…</span>
+              </div>
+            </div>
+          )}
           {/* Desktop header */}
           <div
             className="hidden lg:grid bg-[#1a1a24] px-4 py-5 gap-4 items-center text-[12px] font-medium uppercase tracking-[0.56px] text-[#cacaca]"
@@ -131,8 +163,8 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn, variant = "s
             return (
               <div
                 key={p.id}
-                className="border-t border-[#262626]"
-                style={{ animation: `rowEnter 300ms ease-out ${i * 50}ms both` }}
+                className={`border-t border-[#262626] ${refreshing ? "animate-pulse opacity-60" : ""}`}
+                style={!refreshing ? { animation: `rowEnter 300ms ease-out ${i * 50}ms both` } : undefined}
               >
                 {/* Desktop row */}
                 <div
@@ -273,6 +305,7 @@ export function MyDeposits({ positions, walletAddress, onWithdrawn, variant = "s
               +{formatUsd(yearlySaved)}
             </p>
           </div>
+        </div>
         </div>
 
         <p className="text-[14px] text-[#cfcfcf] text-center">
