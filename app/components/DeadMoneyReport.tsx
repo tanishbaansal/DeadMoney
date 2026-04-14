@@ -3,7 +3,7 @@ import { ArrowUpRight, Info, Sparkles } from "lucide-react";
 import type { DeadMoneyReport as Report, IdleAsset } from "~/lib/deadMoney";
 import { formatUsd, formatApy, getScoreLabel } from "~/lib/deadMoney";
 import { getBestApy, getVaultUrl } from "~/lib/earnApi";
-import { CHAIN_NAMES } from "~/lib/tokens";
+import { CHAIN_NAMES, CHAIN_LOGOS } from "~/lib/tokens";
 import { FixModal } from "./FixModal";
 import { cn } from "~/lib/utils";
 import { calculateYearlyYield } from "~/lib/deposits";
@@ -221,7 +221,15 @@ export function DeadMoneyReport({
                     <p className="text-[12px] text-[#e9e9e9] tracking-[0.48px]">{formatUsd(asset.usdValue)}</p>
                   </div>
                   <div>
-                    <span className="inline-flex bg-[#272727] px-2 py-1.5 text-[13px] font-medium text-[#e9e9e9] tracking-[0.56px] uppercase">
+                    <span className="inline-flex items-center gap-1.5 bg-[#272727] px-2 py-1.5 text-[13px] font-medium text-[#e9e9e9] tracking-[0.56px] uppercase">
+                      {CHAIN_LOGOS[asset.token.chainId as keyof typeof CHAIN_LOGOS] && (
+                        <img
+                          src={CHAIN_LOGOS[asset.token.chainId as keyof typeof CHAIN_LOGOS]}
+                          alt=""
+                          className="w-4 h-4 rounded-full"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )}
                       {CHAIN_NAMES[asset.token.chainId as keyof typeof CHAIN_NAMES] ?? asset.token.chainId}
                     </span>
                   </div>
@@ -277,7 +285,15 @@ export function DeadMoneyReport({
                         <p className="text-[12px] text-[#e9e9e9] capitalize">{asset.token.name}</p>
                       </div>
                     </div>
-                    <span className="bg-[#272727] px-2 py-1 text-[12px] font-medium uppercase text-[#e9e9e9] tracking-[0.48px]">
+                    <span className="inline-flex items-center gap-1.5 bg-[#272727] px-2 py-1 text-[12px] font-medium uppercase text-[#e9e9e9] tracking-[0.48px]">
+                      {CHAIN_LOGOS[asset.token.chainId as keyof typeof CHAIN_LOGOS] && (
+                        <img
+                          src={CHAIN_LOGOS[asset.token.chainId as keyof typeof CHAIN_LOGOS]}
+                          alt=""
+                          className="w-4 h-4 rounded-full"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )}
                       {CHAIN_NAMES[asset.token.chainId as keyof typeof CHAIN_NAMES] ?? asset.token.chainId}
                     </span>
                   </div>

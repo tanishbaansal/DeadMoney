@@ -21,6 +21,15 @@ export const CHAIN_NAMES: Record<SupportedChainId, string> = {
   324: "zkSync Era",
 };
 
+export const CHAIN_LOGOS: Record<SupportedChainId, string> = {
+  1: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+  8453: "https://icons.llamao.fi/icons/chains/rsz_base.jpg",
+  42161: "https://icons.llamao.fi/icons/chains/rsz_arbitrum.jpg",
+  10: "https://icons.llamao.fi/icons/chains/rsz_optimism.jpg",
+  137: "https://assets.coingecko.com/coins/images/4713/small/polygon.png",
+  324: "https://icons.llamao.fi/icons/chains/rsz_zksync%20era.jpg",
+};
+
 // Alchemy RPC URLs — now proxied through our secure backend API route
 export function getChainRpcUrl(chainId: SupportedChainId): string {
   const proxyPaths: Record<SupportedChainId, string> = {

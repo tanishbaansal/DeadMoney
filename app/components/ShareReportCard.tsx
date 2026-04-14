@@ -3,7 +3,7 @@ import { Copy, Check } from "lucide-react";
 import { toPng } from "html-to-image";
 import type { DeadMoneyReport } from "~/lib/deadMoney";
 import { formatUsd, getScoreLabel } from "~/lib/deadMoney";
-import { CHAIN_NAMES } from "~/lib/tokens";
+import { CHAIN_NAMES, CHAIN_LOGOS } from "~/lib/tokens";
 import { shortenAddress } from "~/lib/ens";
 import { cn } from "~/lib/utils";
 
@@ -21,7 +21,11 @@ interface ShareReportCardProps {
 
 export function ShareReportCard({ report }: ShareReportCardProps) {
   const info = getScoreLabel(report.deadMoneyScore);
-  const topAsset = report.idleAssets[0];
+  const sortedAssets = [...report.idleAssets].sort((a, b) => b.yearlyLossUsd - a.yearlyLossUsd);
+  const topAssets = sortedAssets.slice(0, 3);
+  const remainingAssets = sortedAssets.slice(3);
+  const remainingLoss = remainingAssets.reduce((s, a) => s + a.yearlyLossUsd, 0);
+  const allRemainingStable = remainingAssets.length > 0 && remainingAssets.every((a) => a.token.isStable);
   const cardRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [copying, setCopying] = useState(false);
@@ -57,7 +61,7 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
   const usdcIcon =
     "data:image/svg+xml;utf8," +
     encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="#2775CA" stroke="#2a2a3a" stroke-width="2"/><text x="18" y="23" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="14" fill="#ffffff">$</text></svg>`
+      `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="#2775CA" stroke="#2a2a3a" stroke-width="2"/><circle cx="18" cy="18" r="12" fill="none" stroke="#ffffff" stroke-width="1.6"/><text x="18" y="23.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="15" fill="#ffffff">$</text></svg>`
     );
 
   function getShareFallbackIcon(symbol?: string) {
@@ -243,34 +247,67 @@ export function ShareReportCard({ report }: ShareReportCardProps) {
           </div>
         </div>
 
-        {/* Top idle asset row — only when there's an idle asset */}
-        {!isHealthy && topAsset && (
-          <div className="rounded-[10px] bg-[rgba(14,11,20,0.8)] px-4 py-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              {topAsset.token.logoUrl ? (
-                <img
-                  src={topAsset.token.logoUrl}
-                  alt=""
-                  data-token-symbol={topAsset.token.symbol}
-                  className="w-9 h-9 rounded-full border border-[#2a2a3a] shrink-0"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-[#272727] shrink-0" />
-              )}
-              <p className="text-[14px] font-medium text-white tracking-[0.64px] uppercase truncate">
-                {topAsset.token.symbol}
-              </p>
-              <p className="text-[12px] text-[#cacaca] tracking-[0.56px] capitalize truncate">
-                {CHAIN_NAMES[topAsset.token.chainId as keyof typeof CHAIN_NAMES] ??
-                  topAsset.token.chainId}
-              </p>
-            </div>
-            <p className="text-[18px] font-normal text-[#e40000] whitespace-nowrap">
-              -{formatUsd(topAsset.yearlyLossUsd)}/yr
-            </p>
+        {/* Top idle assets — up to 3, plus an aggregated row for the rest */}
+        {!isHealthy && topAssets.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {topAssets.map((asset) => (
+              <div
+                key={`${asset.token.chainId}:${asset.token.address}`}
+                className="rounded-[10px] bg-[rgba(14,11,20,0.8)] px-4 py-3 flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  {asset.token.logoUrl ? (
+                    <img
+                      src={asset.token.logoUrl}
+                      alt=""
+                      data-token-symbol={asset.token.symbol}
+                      className="w-9 h-9 rounded-full border border-[#2a2a3a] shrink-0"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-[#272727] shrink-0" />
+                  )}
+                  <p className="text-[14px] font-medium text-white tracking-[0.64px] uppercase truncate">
+                    {asset.token.symbol}
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-[12px] text-[#cacaca] tracking-[0.56px] capitalize truncate">
+                    {CHAIN_LOGOS[asset.token.chainId as keyof typeof CHAIN_LOGOS] && (
+                      <img
+                        src={CHAIN_LOGOS[asset.token.chainId as keyof typeof CHAIN_LOGOS]}
+                        alt=""
+                        className="w-3.5 h-3.5 rounded-full shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    )}
+                    {CHAIN_NAMES[asset.token.chainId as keyof typeof CHAIN_NAMES] ??
+                      asset.token.chainId}
+                  </span>
+                </div>
+                <p className="text-[16px] font-normal text-[#e40000] whitespace-nowrap">
+                  -{formatUsd(asset.yearlyLossUsd)}/yr
+                </p>
+              </div>
+            ))}
+
+            {remainingAssets.length > 0 && (
+              <div className="rounded-[10px] bg-[rgba(14,11,20,0.6)] border border-dashed border-[#373737] px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-[#2a2a3a] flex items-center justify-center text-[11px] font-bold text-[#cacaca] shrink-0">
+                    +{remainingAssets.length}
+                  </div>
+                  <p className="text-[13px] font-medium text-[#cacaca] truncate">
+                    {remainingAssets.length} more {allRemainingStable ? "stables" : "assets"}
+                  </p>
+                </div>
+                <p className="text-[16px] font-normal text-[#e40000] whitespace-nowrap">
+                  -{formatUsd(remainingLoss)}/yr
+                </p>
+              </div>
+            )}
           </div>
         )}
 
