@@ -28,11 +28,11 @@ Two LI.FI services power the entire app:
 
 ```
 ┌─────────────────────────────┐      ┌────────────────────────────┐
-│  Earn Data API (no auth)    │      │  Composer (API key)        │
+│  Earn Data API (API key)    │      │  Composer (API key)        │
 │  earn.li.fi                 │      │  li.quest                  │
 │                             │      │                            │
-│  GET /v1/earn/vaults        │      │  GET /v1/quote             │
-│  GET /v1/earn/portfolio/    │      │  GET /v1/analytics/        │
+│  GET /v1/vaults             │      │  GET /v1/quote             │
+│  GET /v1/portfolio/         │      │  GET /v1/analytics/        │
 │      :addr/positions        │      │      transfers             │
 └──────────────┬──────────────┘      └───────────────┬────────────┘
                │                                     │

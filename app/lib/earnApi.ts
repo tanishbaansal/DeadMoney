@@ -9,6 +9,14 @@ const EARN_PATH = (path: string) =>
     ? `/earn-api${path}`
     : `https://earn.li.fi${path}`;
 
+const LIFI_API_KEY =
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_LIFI_API_KEY) ||
+  (typeof process !== "undefined" ? process.env?.COMPOSER_API_KEY : undefined) ||
+  "";
+
+const earnHeaders = (): HeadersInit =>
+  LIFI_API_KEY ? { "x-lifi-api-key": LIFI_API_KEY } : {};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface VaultAnalytics {
@@ -126,11 +134,12 @@ export async function getVaults(chainId?: number, assetAddress?: string): Promis
     params.set("asset", addr);
   }
 
-  const url = EARN_PATH(`/v1/earn/vaults?${params}`);
-  
+  const url = EARN_PATH(`/v1/vaults?${params}`);
+
   try {
     const res = await fetch(url, {
       signal: AbortSignal.timeout(10000),
+      headers: earnHeaders(),
     });
 
     if (!res.ok) {
@@ -164,8 +173,9 @@ export async function getBestVault(chainId: number, assetAddress: string): Promi
 }
 
 export async function getPortfolioPositions(userAddress: string): Promise<Position[]> {
-  const res = await fetch(EARN_PATH(`/v1/earn/portfolio/${userAddress}/positions`), {
+  const res = await fetch(EARN_PATH(`/v1/portfolio/${userAddress}/positions`), {
     signal: AbortSignal.timeout(10000),
+    headers: earnHeaders(),
   });
 
   if (!res.ok) return [];
@@ -178,6 +188,7 @@ export async function getTransactionHistory(userAddress: string): Promise<any[]>
   const url = `https://li.quest/v1/analytics/transfers?wallet=${userAddress}&limit=100`;
   const res = await fetch(url, {
     signal: AbortSignal.timeout(10000),
+    headers: earnHeaders(),
   });
 
   if (!res.ok) return [];
